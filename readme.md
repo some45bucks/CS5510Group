@@ -1,0 +1,1 @@
+Before running doing anything else run the command: ```pip install -r requirements.txt```
