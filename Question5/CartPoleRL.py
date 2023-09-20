@@ -58,7 +58,7 @@ class Agent(object):
     def __init__(self, environment):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = QualityNN(environment.observation_space.shape[0], environment.action_space.n).to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=2e-3)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1.5e-3)
 
         #decay the randomness over time
         self.decay = 0.9995

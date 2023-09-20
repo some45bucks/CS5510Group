@@ -1,5 +1,5 @@
 from CartPoleRL import train, test
 
-train()
+#train(3500,50)
 
 test()
