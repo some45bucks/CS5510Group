@@ -2,10 +2,12 @@ import random
 from collections import deque
 import numpy as np
 
+import math
+
 import gym
 import torch
 
-from circleGym import CircleGym
+from CircleGym import CircleGym
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -143,7 +145,7 @@ def train(max_iteration = 3500,logging_iteration = 50):
 
     learning = []
 
-    environment = CircleGym() #TODO
+    environment = CircleGym()
     agent = Agent(environment)
     memory = Memory(max_size=10000)
 
@@ -207,26 +209,32 @@ class TestAgent(object):
         return action
 
 def test():
-    environment = gym.make("CartPole-v1")
-    agent = TestAgent(environment)
-    agent.model = QualityNN(environment.inputs, environment.outputs)
-    agent.model.load_state_dict(torch.load(SAVE_PATH))
-    agent.model.eval()
+    environment = CircleGym(35,.1,8000,2)
+    # agent = TestAgent(environment)
+    # agent.model = QualityNN(environment.inputs, environment.outputs)
+    # agent.model.load_state_dict(torch.load(SAVE_PATH))
+    # agent.model.eval()
 
-    # will save video for us
-    environment = gym.wrappers.RecordVideo(
-        gym.make("CartPole-v1", render_mode="rgb_array"),
-        video_folder="./videos",
-        episode_trigger=lambda x: x == 0
-    )
+    pointsX = []
+    pointsY = []
 
     for iteration in range(1, 2):
         steps = 0
         done = False
         state = environment.reset()
+        pointsX.append(state[0])
+        pointsY.append(state[1])
 
         while not done:
-            steps += 1
 
-            action = agent.act(state)
+            action = [.01,math.pi/5] #agent.act(state)s
             state, reward, done, *_ = environment.step(action)
+            pointsX.append(state[0])
+            pointsY.append(state[1])
+    fig, ax = plt.subplots()
+    ax.add_patch(plt.Circle((0, 0), 2, color='r'))
+    ax.plot(pointsX, pointsY)
+    plt.title("Path")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.show()
