@@ -2,27 +2,23 @@ import random
 from collections import deque
 import numpy as np
 
-import math
-
-import gym
+from CircleGym import CircleGym2A,CircleGym2B
 import torch
-
-from CircleGym import CircleGym
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.lines import Line2D
 
-SAVE_PATH = "./saves/CartPoleRecent.pt"
+SAVE_PATH = "./CarRLRecent.pt"
+SAVE_PATH_BEST = "./CarRLBest.pt"
 
-
-# this is the Neural Network also called a Policy
 class QualityNN(torch.nn.Module):
     def __init__(self, observation_space, action_space):
         super(QualityNN, self).__init__()
         #this is setting up the layers with inputs and outputs
-        self.layer1 = torch.nn.Linear(observation_space, 64)
-        self.layer2 = torch.nn.Linear(64, 128)
-        self.layer3 = torch.nn.Linear(128, action_space)
+        self.layer1 = torch.nn.Linear(observation_space, 428)
+        self.layer2 = torch.nn.Linear(428, 428)
+        self.layer3 = torch.nn.Linear(428, action_space)
 
     #feed forward with inputs
     def forward(self, x):
@@ -37,19 +33,29 @@ class QualityNN(torch.nn.Module):
         # output is the amount of reward expected with this action
         return x
 
-# we store states and next states in memory adn then train the agent once it's done with a scene
-#it acts like a queue so we only train on the x most recent
 class Memory(object):
-    def __init__(self, max_size=100):
-        self.memory = deque(maxlen=max_size)
+    def __init__(self,l):
+        self.memory = deque(maxlen=l)
+        self.rewards = []
+        self.run = []
 
-    def push(self, element):
-        self.memory.append(element)
+    def push(self, element, R):
+        self.run.append(element)
+        self.rewards.append(R)
 
-    def get_batch(self, batch_size=4):
-        if batch_size > len(self.memory):
-            batch_size = len(self.memory)
-        return random.sample(self.memory, batch_size)
+    def finishRun(self,discount):
+        for i in range(len(self.rewards)-2,-1,-1):
+            self.rewards[i] = self.rewards[i]+discount*self.rewards[i+1]
+        self.memory.append((self.run,self.rewards))
+        self.clear()
+
+    def get_batch(self):
+        x = random.choice(self.memory)
+        return x[0], x[1]
+
+    def clear(self):
+        self.run = []
+        self.rewards = []
 
     def __repr__(self):
         return f"Current elements in memory: {len(self.memory)}"
@@ -57,15 +63,14 @@ class Memory(object):
     def __len__(self):
         return len(self.memory)
 
-# this is the actual agent that contains the NN
 class Agent(object):
     def __init__(self, environment):
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model = QualityNN(environment.observation_space.shape[0], environment.action_space.n).to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=2e-3)
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = QualityNN(environment.inputs, environment.outputs).to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=7e-4)
 
         #decay the randomness over time
-        self.decay = 0.9995
+        self.decay = 0.999
         self.randomness = 1.00
         self.min_randomness = 0.001
 
@@ -85,20 +90,13 @@ class Agent(object):
         # return that action
         return action
 
-    def update(self, memory_batch):
+    def update(self, memory_batch,rewards):
         # unpack our batch and convert to tensors
-        states, next_states, actions, rewards = self.unpack_batch(memory_batch)
-
+        states, next_states, actions = self.unpack_batch(memory_batch)
+        rewards = torch.tensor(rewards).float().unsqueeze(1).to(self.device)
         # compute what the output is (old expected qualities)
         old_targets = self.old_targets(states, actions)
 
-        # compute what the output should be (new expected qualities)
-        # longer version: we save states in pairs in memory and the action that was taken to get from the past state
-        # to the future state. we then train the model to predict what wit will predict in the next state if it takes 
-        # that action, because the NN should by trying to learn what reward is expected at each action and that should 
-        # take into future actions predicted rewards. we also add in the reward it gets just by living another state.
-        # doing this the NN should predict the total reward it will get by taking an action, and then choose the action 
-        # with the best reward. LMK what you are still confused about on discord.
         new_targets = self.new_targets(states, next_states, rewards, actions)
 
         # compute the difference between old and new estimates
@@ -131,69 +129,16 @@ class Agent(object):
         actions = [item[2] for item in batch]
         actions = torch.tensor(actions).long().unsqueeze(1).to(self.device)
 
-        rewards = [item[3] for item in batch]
-        rewards = torch.tensor(rewards).float().unsqueeze(1).to(self.device)
-
-        return states, next_states, actions, rewards
+        return states, next_states, actions
 
     #helper function
     def update_randomness(self):
         self.randomness *= self.decay
         self.randomness = max(self.randomness, self.min_randomness)
 
-def train(max_iteration = 3500,logging_iteration = 50):
-
-    learning = []
-
-    environment = CircleGym()
-    agent = Agent(environment)
-    memory = Memory(max_size=10000)
-
-    for iteration in range(1, max_iteration + 1):
-        steps = 0
-        done = False
-        state = environment.reset()
-        
-        #main loop where the agent interacts with the environment
-        while not done:
-            action = agent.act(state)
-            next_state, reward, done, *_ = environment.step(action)
-
-            memory.push(element=(state, next_state, action, reward))
-
-            state = next_state
-            steps += 1
-
-        #get some batch size to train on from memory
-        memory_batch = memory.get_batch(batch_size=256)
-        
-        #where the agent trains itself
-        agent.update(memory_batch)
-        agent.update_randomness()
-
-        learning.append(steps)
-        if iteration % logging_iteration == 0:
-            print(f"Iteration: {iteration}")
-            print(f"  Moving-Average Steps: {np.mean(learning[-logging_iteration:]):.4f}")
-            print(f"  Memory-Buffer Size: {len(memory.memory)}")
-            print(f"  Agent Randomness: {agent.randomness:.3f}")
-            torch.save(agent.model.state_dict(), SAVE_PATH)
-    
-    torch.save(agent.model.state_dict(), SAVE_PATH)
-          
-    x = np.arange(0, len(learning), logging_iteration)
-    y = np.add.reduceat(learning, x) / logging_iteration
-
-    sns.lineplot(x=x, y=y)
-    plt.title("Cart Lifespan During Training")
-    plt.xlabel("Episodes")
-    plt.ylabel("Lifespan Steps")
-    plt.show()
-
-# for testing and generating video
 class TestAgent(object):
     def __init__(self, environment):
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = QualityNN(environment.inputs, environment.outputs).to(self.device)
 
     def act(self, state):
@@ -208,33 +153,314 @@ class TestAgent(object):
         # return that action
         return action
 
-def test():
-    environment = CircleGym(35,.1,8000,2)
-    # agent = TestAgent(environment)
-    # agent.model = QualityNN(environment.inputs, environment.outputs)
-    # agent.model.load_state_dict(torch.load(SAVE_PATH))
-    # agent.model.eval()
+def train2A(max_iteration = 3500,logging_iteration = 50):
 
-    pointsX = []
-    pointsY = []
+    learning = []
+    best = float("-inf")
 
-    for iteration in range(1, 2):
-        steps = 0
+    environment = CircleGym2A(10.668,.5,28,18)
+    agent = Agent(environment)
+    memory = Memory(10000)
+
+    for iteration in range(1, max_iteration + 1):
         done = False
         state = environment.reset()
-        pointsX.append(state[0])
-        pointsY.append(state[1])
-
+        reward_log = 0
+        #main loop where the agent interacts with the environment
         while not done:
+            action = agent.act(state)
+            next_state, reward, done, *_ = environment.step(action)
 
-            action = [.01,math.pi/5] #agent.act(state)s
-            state, reward, done, *_ = environment.step(action)
+            memory.push((state, next_state, action), reward)
+            reward_log += reward
+            state = next_state
+
+        if reward_log > best:
+            torch.save(agent.model.state_dict(), SAVE_PATH_BEST)
+            test2A(False,True)
+            best = reward_log
+            
+            
+        memory.finishRun(.95)
+        memory_batch = memory.get_batch()
+        for i in range(min(500,len(memory_batch))):
+            agent.update(memory_batch[0],memory_batch[1])
+        agent.update_randomness()
+
+        learning.append(reward_log)
+        if iteration % logging_iteration == 0:
+            print(f"Iteration: {iteration}")
+            print(f"  Best Reward {best}")
+            print(f"  Moving-Average reward: {np.mean(learning[-logging_iteration:]):.4f}")
+            print(f"  Memory-Buffer Size: {len(memory.memory)}")
+            print(f"  Agent Randomness: {agent.randomness:.3f}")
+            
+            if best > np.mean(learning[-logging_iteration]):
+                a = Agent(environment)
+                a.model = QualityNN(environment.inputs, environment.outputs)
+                a.model.load_state_dict(torch.load(SAVE_PATH_BEST))
+                a.model.eval()
+                a.model.to(a.device)
+                for i in range(100):
+                    done = False
+                    state = environment.reset()
+                    while not done:
+                        action = a.act(state)
+                        next_state, reward, done, *_ = environment.step(action)
+
+                        memory.push((state, next_state, action),reward)
+                        state = next_state
+
+                    memory.finishRun(.95)
+
+            torch.save(agent.model.state_dict(), SAVE_PATH)
+            test2A(False,False)
+    torch.save(agent.model.state_dict(), SAVE_PATH)
+          
+    x = np.arange(0, len(learning), logging_iteration)
+    y = np.add.reduceat(learning, x) / logging_iteration
+
+    #very very bad but its ok (don't worry if your not using cuda)
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
+    sns.lineplot(x=x, y=y)
+    plt.title("Car Reward")
+    plt.xlabel("Episodes")
+    plt.ylabel("Reward")
+    plt.show()
+
+def test2A(show = True,best = False,dots = True):
+    environment = CircleGym2A(10.668,.5,28,18)
+    agent = TestAgent(environment)
+    agent.model = QualityNN(environment.inputs, environment.outputs)
+    if best:
+        agent.model.load_state_dict(torch.load(SAVE_PATH_BEST))
+    else:
+        agent.model.load_state_dict(torch.load(SAVE_PATH))
+    agent.model.eval()
+    agent.model.to(agent.device)
+    pointsX = []
+    pointsY = []
+    thetas = []
+    actions = []
+
+    sweepx = []
+    sweepy = []
+
+    for iteration in range(1, 2):
+        done = False
+        state = environment.reset()
+        reward_log = 0
+        pointsX.append(0)
+        pointsY.append(0)
+        thetas.append(0)
+        sweepx.append(environment.sweepX/environment.R)
+        sweepy.append(environment.sweepY/environment.R)
+        #main loop where the agent interacts with the environment
+        while not done:
+            action = agent.act(state)
+            actions.append(environment.map[action]*environment.Ma)
+            next_state, reward, done, *_ = environment.step(action)
+            reward_log += reward
+            state = next_state
             pointsX.append(state[0])
             pointsY.append(state[1])
+            thetas.append(state[2])
+            
+            sweepx.append(environment.sweepX/environment.R)
+            sweepy.append(environment.sweepY/environment.R)
+        actions.append(0)
+
+
+    #very very bad but its ok (don't worry if your not using cuda)
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
+    custom_lines = [Line2D([0], [0], color='blue', lw=4),
+                Line2D([0], [0], color='black', lw=4),
+                Line2D([0], [0], color='green', lw=4)]
+
+    c = [.5*i for i in range(len(pointsX))]
     fig, ax = plt.subplots()
-    ax.add_patch(plt.Circle((0, 0), 2, color='r'))
-    ax.plot(pointsX, pointsY)
+    ax.add_patch(plt.Circle((0, 0), 18, color='r'))
+    ax.plot(np.multiply(pointsX,18), np.multiply(pointsY,18))
+    if dots:
+        ax.scatter(np.multiply(pointsX,18), np.multiply(pointsY,18), c=c, ec='k')
+        ax.scatter(np.multiply(sweepx,18), np.multiply(sweepy,18), c=c, ec='k')
+    else:
+        ax.quiver(np.multiply(pointsX,18), np.multiply(pointsY,18),-np.sin(thetas),np.cos(thetas))
+        ax.quiver(np.multiply(pointsX,18), np.multiply(pointsY,18),-np.sin(np.add(actions,thetas)),np.cos(np.add(actions,thetas)), color='g')
+    plt.axis([-1.5*18, 1.5*18, -1.5*18, 1.5*18])
+    x0,x1 = ax.get_xlim()
+    y0,y1 = ax.get_ylim()
+    ax.set_aspect(abs(x1-x0)/abs(y1-y0))
     plt.title("Path")
     plt.xlabel("x")
     plt.ylabel("y")
+    ax.legend(custom_lines, ['Path', 'Current Trajectory', 'Turn Action'])
+    if best:
+        fig.savefig("bestPathGraph.png")
+    else:
+        fig.savefig("pathGraph.png")
+    if show:
+        plt.show()
+    plt.close()
+
+    return pointsX, pointsY, thetas, actions
+
+def train2B(max_iteration = 3500,logging_iteration = 50):
+
+    learning = []
+    best = float("-inf")
+
+    environment = CircleGym2B(10.668,.5,28,18)
+    agent = Agent(environment)
+    memory = Memory(10000)
+
+    for iteration in range(1, max_iteration + 1):
+        done = False
+        state = environment.reset()
+        reward_log = 0
+        #main loop where the agent interacts with the environment
+        while not done:
+            action = agent.act(state)
+            next_state, reward, done, *_ = environment.step(action)
+
+            memory.push((state, next_state, action), reward)
+            reward_log += reward
+            state = next_state
+
+        if reward_log > best:
+            torch.save(agent.model.state_dict(), SAVE_PATH_BEST)
+            test2B(False,True)
+            best = reward_log
+            
+            
+        memory.finishRun(.95)
+        memory_batch = memory.get_batch()
+        for i in range(min(500,len(memory_batch))):
+            agent.update(memory_batch[0],memory_batch[1])
+        agent.update_randomness()
+
+        learning.append(reward_log)
+        if iteration % logging_iteration == 0:
+            print(f"Iteration: {iteration}")
+            print(f"  Best Reward {best}")
+            print(f"  Moving-Average reward: {np.mean(learning[-logging_iteration:]):.4f}")
+            print(f"  Memory-Buffer Size: {len(memory.memory)}")
+            print(f"  Agent Randomness: {agent.randomness:.3f}")
+            
+            if best > np.mean(learning[-logging_iteration]):
+                a = Agent(environment)
+                a.model = QualityNN(environment.inputs, environment.outputs)
+                a.model.load_state_dict(torch.load(SAVE_PATH_BEST))
+                a.model.eval()
+                a.model.to(a.device)
+                for i in range(100):
+                    done = False
+                    state = environment.reset()
+                    while not done:
+                        action = a.act(state)
+                        next_state, reward, done, *_ = environment.step(action)
+
+                        memory.push((state, next_state, action),reward)
+                        state = next_state
+
+                    memory.finishRun(.95)
+
+            torch.save(agent.model.state_dict(), SAVE_PATH)
+            test2B(False,False)
+    torch.save(agent.model.state_dict(), SAVE_PATH)
+          
+    x = np.arange(0, len(learning), logging_iteration)
+    y = np.add.reduceat(learning, x) / logging_iteration
+
+    #very very bad but its ok (don't worry if your not using cuda)
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
+    sns.lineplot(x=x, y=y)
+    plt.title("Car Reward")
+    plt.xlabel("Episodes")
+    plt.ylabel("Reward")
     plt.show()
+
+def test2B(show = True,best = False,dots = True):
+    environment = CircleGym2B(10.668,.5,28,18)
+    agent = TestAgent(environment)
+    agent.model = QualityNN(environment.inputs, environment.outputs)
+    if best:
+        agent.model.load_state_dict(torch.load(SAVE_PATH_BEST))
+    else:
+        agent.model.load_state_dict(torch.load(SAVE_PATH))
+    agent.model.eval()
+    agent.model.to(agent.device)
+    pointsX = []
+    pointsY = []
+    thetas = []
+    actions = []
+
+    sweepx = []
+    sweepy = []
+
+    for iteration in range(1, 2):
+        done = False
+        state = environment.reset()
+        reward_log = 0
+        pointsX.append(0)
+        pointsY.append(0)
+        thetas.append(0)
+        sweepx.append(environment.sweepX/environment.R)
+        sweepy.append(environment.sweepY/environment.R)
+        #main loop where the agent interacts with the environment
+        while not done:
+            action = agent.act(state)
+            actions.append(environment.map[action]*environment.Ma)
+            next_state, reward, done, *_ = environment.step(action)
+            reward_log += reward
+            state = next_state
+            pointsX.append(state[0])
+            pointsY.append(state[1])
+            thetas.append(state[2])
+            
+            sweepx.append(environment.sweepX/environment.R)
+            sweepy.append(environment.sweepY/environment.R)
+        actions.append(0)
+
+
+    #very very bad but its ok (don't worry if your not using cuda)
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
+    custom_lines = [Line2D([0], [0], color='blue', lw=4),
+                Line2D([0], [0], color='black', lw=4),
+                Line2D([0], [0], color='green', lw=4)]
+
+    c = [.5*i for i in range(len(pointsX))]
+    fig, ax = plt.subplots()
+    ax.add_patch(plt.Circle((0, 0), 18, color='r'))
+    ax.plot(np.multiply(pointsX,18), np.multiply(pointsY,18))
+    if dots:
+        ax.scatter(np.multiply(pointsX,18), np.multiply(pointsY,18), c=c, ec='k')
+        ax.scatter(np.multiply(sweepx,18), np.multiply(sweepy,18), c=c, ec='k')
+    else:
+        ax.quiver(np.multiply(pointsX,18), np.multiply(pointsY,18),-np.sin(thetas),np.cos(thetas))
+        ax.quiver(np.multiply(pointsX,18), np.multiply(pointsY,18),-np.sin(np.add(actions,thetas)),np.cos(np.add(actions,thetas)), color='g')
+    plt.axis([-1.5*18, 1.5*18, -1.5*18, 1.5*18])
+    x0,x1 = ax.get_xlim()
+    y0,y1 = ax.get_ylim()
+    ax.set_aspect(abs(x1-x0)/abs(y1-y0))
+    plt.title("Path")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    ax.legend(custom_lines, ['Path', 'Current Trajectory', 'Turn Action'])
+    if best:
+        fig.savefig("bestPathGraph.png")
+    else:
+        fig.savefig("pathGraph.png")
+    if show:
+        plt.show()
+    plt.close()
+
+    return pointsX, pointsY, thetas, actions

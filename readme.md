@@ -1,1 +1,1 @@
-Before doing anything else run the command: ```pip install -r requirements.txt```
+Before doing anything else run the command from the root: ```pip install -r requirements.txt```

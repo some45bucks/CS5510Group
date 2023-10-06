@@ -8,7 +8,7 @@ import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-SAVE_PATH = "./saves/CartPoleRecent.pt"
+SAVE_PATH = "./CartPoleRecent.pt"
 
 
 # this is the Neural Network also called a Policy
@@ -56,7 +56,7 @@ class Memory(object):
 # this is the actual agent that contains the NN
 class Agent(object):
     def __init__(self, environment):
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = QualityNN(environment.observation_space.shape[0], environment.action_space.n).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1.5e-3)
 
@@ -180,6 +180,10 @@ def train(max_iteration = 3500,logging_iteration = 50):
     x = np.arange(0, len(learning), logging_iteration)
     y = np.add.reduceat(learning, x) / logging_iteration
 
+    #very very bad but its ok (don't worry if your not using cuda)
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
     sns.lineplot(x=x, y=y)
     plt.title("Cart Lifespan During Training")
     plt.xlabel("Episodes")
@@ -189,12 +193,12 @@ def train(max_iteration = 3500,logging_iteration = 50):
 # for testing and generating video
 class TestAgent(object):
     def __init__(self, environment):
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = QualityNN(environment.observation_space.shape[0], environment.action_space.n).to(self.device)
 
     def act(self, state):
         # move the state to a Torch Tensor
-        state = torch.from_numpy(state).float().to(self.device)
+        state = torch.from_numpy(state).float()
 
         # find the quality of both actions (expected reward)
         qualities = self.model(state).cpu()
