@@ -1,0 +1,32 @@
+Pseudocode
+
+A*(s, t)
+  q.enq(s)
+  exp={}
+  while !q.empty
+    u = q.deq()
+    if u = t
+      path(u)
+    exp.add(u)
+    for v in u.neighbors
+      if v not in exp:
+        work = u.work + aug_dist(u, v)
+        if !q.cointains(v) or work < v.work
+          v.from = u
+          v.work = work + heuristic(u, t)
+          if !q.contains(v)
+            q.enq(v)
+path(v):
+  p = [v]
+  while v.from:
+    p.append(v)
+
+aug_dist(u, v)
+  if u.terr < v.terr
+    return v.terr + 1
+  if u.terr > v.terr
+    return v.terr - 0.5
+  return v.terr
+
+heuristic(u, t):
+  return sqrt((u.coord.x - t.coord.x)**2 + (u.coord.y - t.coord.y)**2)
