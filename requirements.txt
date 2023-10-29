@@ -2,7 +2,9 @@
 numpy
 gym
 torch
+torchvision
 matplotlib
+scipy
 seaborn
 moviepy
 pygame

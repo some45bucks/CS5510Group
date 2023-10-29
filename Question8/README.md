@@ -1,0 +1,1 @@
+The dataset used by this question is a subset of the ImageNet ILSVRC 2012 dataset. See the README in the dataset directory for information on how to download the dataset.
