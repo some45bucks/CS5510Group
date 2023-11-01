@@ -1,6 +1,6 @@
 import torch
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from torchvision.datasets import ImageNet
 from torchvision.models import alexnet
 from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
@@ -25,16 +25,21 @@ print('Loading AlexNet model with pre-trained weights...')
 model = alexnet(weights='IMAGENET1K_V1').eval().to(device)
 print('Finished loading AlexNet model')
 
-val_loader = DataLoader(validation_set, batch_size=100, shuffle=True)
+# I'm going to assume that most GPUs that will run this should have enough memory to load all 100 images in a batch for inference
+# So that I can simplify the code and not have to worry about computing metrics across multiple batches
+val_loader = DataLoader(validation_set, batch_size=100, sampler=RandomSampler(validation_set, num_samples=100))
 
 print('Performing classification on ImageNet validation set...')
 with torch.no_grad():
     for images, labels in val_loader:
         images, labels = images.to(device), labels.to(device)
         outputs = model(images)
-        # TODO: Probably should report this using a both top-1 and top-5 accuracy
         _, predictions = torch.max(outputs, dim=1)
-        print('Accuracy: {:.2f}%'.format(torch.sum(predictions == labels).item() / labels.size(0) * 100))
+
+        print('Top-1 Accuracy: {:.2f}%'.format(torch.sum(predictions == labels).item() / labels.size(0) * 100))
+        _, top_5_predictions = torch.topk(outputs, k=5, dim=1)
+        top_5_accuracy = torch.sum(torch.any(top_5_predictions == labels.unsqueeze(dim=1), dim=1)).item() / labels.size(0) * 100
+        print(f'Top-5 Accuracy: {top_5_accuracy:.2f}%')
         break # Only classify one batch of 100 images
 
 print('Finished performing classification')
