@@ -2,172 +2,431 @@ import math
 import numpy as np
 import random
 
-class CircleGym2A:
-    inputs = 5
-    outputs = 50
-
-    map = [-(i)/50 for i in range(51)]
+class CircleGym2ASearch:
 
     def __init__(self,_L,_t,_T,_R,maxV = 1):
         self.L = _L
         self.t = _t
-        self.x = 0
-        self.y = 0
-        self.theta = 0
         self.Time = _T
         self.T=_T
         self.R = _R
         self.Mv = maxV
         self.Ma = math.pi/3
 
-        self.sweepTheta = 0
-        self.sweepX = 0
-        self.sweepY = self.R
-
-    def generate_random_point_in_circle(self,radius):
-        # Generate random angle between 0 and 2pi
-        theta = 2 * math.pi * random.random()
-
-        # Generate random radius in the circle using square root of uniform distribution
-        # This is done to avoid clustering at the center
-        r = radius * math.sqrt(random.random())
-
-        # Convert polar to Cartesian coordinates
-        x = r * math.cos(theta)
-        y = r * math.sin(theta)
-
-        return (x, y)
-
     def reset(self):
-        x,y = self.generate_random_point_in_circle(self.R)
         self.x = 0
         self.y = 0
+        self.px = 0
+        self.py = 0
 
         self.sweepTheta = 0
         self.sweepX = self.R*math.sin(self.sweepTheta)
         self.sweepY = self.R*math.cos(self.sweepTheta)
 
+        self.psweepTheta = 0
+        self.psweepX = 0
+        self.psweepY = 0
+
+        self.errorTheta = 0
+        self.errorX = self.x
+        self.errorY = self.y
+
+        self.perrorTheta = 0
+        self.perrorX = 0
+        self.perrorY = 0
+
         self.theta = 0
+        self.ptheta = 0
         self.T=self.Time
-
-        return np.array([self.x/self.R,self.y/self.R,self.theta/self.Ma,self.sweepX/self.R,self.sweepY/self.R])
+        self.pT = 0
     
-    def step(self,actions):
-        v = 8
-        action = self.map[actions]
-        a = action* self.Ma
+    def stepBack(self):
+        self.x = self.px
+        self.y = self.py
 
-        
+        self.sweepTheta = self.psweepTheta
+        self.sweepX = self.psweepX
+        self.sweepY = self.psweepY
+
+        self.errorTheta = self.perrorTheta
+        self.errorX = self.perrorX
+        self.errorY = self.perrorY
+
+        self.theta =self.ptheta
+        self.T=self.pT
+
+    def step(self,action):
+
+        self.px = self.x
+        self.py = self.y
+
+        self.psweepTheta = self.sweepTheta
+        self.psweepX = self.sweepX
+        self.psweepY = self.sweepY
+
+        self.perrorTheta = self.errorTheta
+        self.perrorX = self.errorX
+        self.perrorY = self.errorY
+
+        self.ptheta =self.theta
+        self.pT=self.T
+
+        v = 8
+        a = action * self.Ma
+
+        if math.tan(a) != 0:
+            R = self.L/math.tan(a)
+            
+        else:
+            R = 9999999999999
+
+        self.errorTheta = ((v*self.t)/R)
+            
+        self.errorX = self.errorX + R*math.sin(self.errorTheta + self.theta + math.pi/2) - R*math.sin(self.theta + math.pi/2)
+        self.errorY = self.errorY - R*math.cos(self.errorTheta + self.theta + math.pi/2) + R*math.cos(self.theta + math.pi/2)
+
+        self.theta = self.theta + (v/self.L)*math.tan(a)*self.t
         self.x = self.x - v*math.sin(self.theta)*self.t
         self.y = self.y + v*math.cos(self.theta)*self.t
-        self.theta = self.theta + (v/self.L)*math.tan(a)*self.t
-
-        self.sweepX = self.R*math.sin(self.sweepTheta)
-        self.sweepY = self.R*math.cos(self.sweepTheta)
-        self.sweepTheta = self.sweepTheta + math.pi/(14)
 
         self.T -= self.t
 
         done = self.T <= 0
 
-        
+        dist = math.dist([self.sweepX,self.sweepY],[self.x,self.y])/self.R
 
-        dist = math.dist([self.sweepX,self.sweepY],[self.x,self.y])
-        dist0 = math.dist([0,0],[self.x,self.y])
+        self.sweepX = self.R*math.sin(self.sweepTheta)
+        self.sweepY = self.R*math.cos(self.sweepTheta)
+        self.sweepTheta = self.sweepTheta + ((v*self.t)/self.R)
 
-        # scientifically proven reward function
-        reward = .5-dist +100*(1-(self.T/self.Time))
+        dist0 = math.dist([0,0],[self.x,self.y])/self.R
 
-        if dist0 > self.R:
-            reward -= 100*(1-(self.T/self.Time))
-            done = True
+        reward = 1-dist
 
-        if dist > 17.5*(self.T/self.Time)+.5:
-            done = True
+        if dist0 > 1:
+            reward = -1
 
-        return np.array([self.x/self.R,self.y/self.R,self.theta/self.Ma,self.sweepX/self.R,self.sweepY/self.R]), reward, done
+        return reward, done
     
-class CircleGym2B:
-    inputs = 5
-    outputs = 50
+class CircleGym2BSearch:
 
-    map = [-(i)/50 for i in range(51)]
-
-    def __init__(self,_L,_t,_T,_R,maxV = 1):
-        self.L = _L
+    def __init__(self,_W,_t,_T,_R,maxV):
+        self.W = _W
         self.t = _t
-        self.x = 0
-        self.y = 0
-        self.theta = 0
         self.Time = _T
         self.T=_T
         self.R = _R
         self.Mv = maxV
-        self.Ma = math.pi/3
-
-        self.sweepTheta = 0
-        self.sweepX = 0
-        self.sweepY = self.R
-
-    def generate_random_point_in_circle(self,radius):
-        # Generate random angle between 0 and 2pi
-        theta = 2 * math.pi * random.random()
-
-        # Generate random radius in the circle using square root of uniform distribution
-        # This is done to avoid clustering at the center
-        r = radius * math.sqrt(random.random())
-
-        # Convert polar to Cartesian coordinates
-        x = r * math.cos(theta)
-        y = r * math.sin(theta)
-
-        return (x, y)
 
     def reset(self):
-        x,y = self.generate_random_point_in_circle(self.R)
         self.x = 0
         self.y = 0
 
+        self.px = 0
+        self.py = 0
+
         self.sweepTheta = 0
         self.sweepX = self.R*math.sin(self.sweepTheta)
         self.sweepY = self.R*math.cos(self.sweepTheta)
 
+        self.psweepTheta = 0
+        self.psweepX = 0
+        self.psweepY = 0
+
+        self.errorTheta = 0
+        self.errorX = self.x
+        self.errorY = self.y
+
+        self.perrorTheta = 0
+        self.perrorX = 0
+        self.perrorY = 0
+
         self.theta = 0
+        self.ptheta = 0
         self.T=self.Time
-
-        return np.array([self.x/self.R,self.y/self.R,self.theta/self.Ma,self.sweepX/self.R,self.sweepY/self.R])
+        self.pT = 0
     
-    def step(self,actions):
-        v = 8
-        action = self.map[actions]
-        a = action* self.Ma
+    def stepBack(self):
+        self.x = self.px
+        self.y = self.py
 
-        
-        self.x = self.x - v*math.sin(self.theta)*self.t
-        self.y = self.y + v*math.cos(self.theta)*self.t
-        self.theta = self.theta + (v/self.L)*math.tan(a)*self.t
+        self.sweepTheta = self.psweepTheta
+        self.sweepX = self.psweepX
+        self.sweepY = self.psweepY
 
-        self.sweepX = self.R*math.sin(self.sweepTheta)
-        self.sweepY = self.R*math.cos(self.sweepTheta)
-        self.sweepTheta = self.sweepTheta + math.pi/(14)
+        self.errorTheta = self.perrorTheta
+        self.errorX = self.perrorX
+        self.errorY = self.perrorY
+
+        self.theta =self.ptheta
+        self.T=self.pT
+
+    def step(self,actionL,actionR):
+
+        self.px = self.x
+        self.py = self.y
+
+        self.psweepTheta = self.sweepTheta
+        self.psweepX = self.sweepX
+        self.psweepY = self.sweepY
+
+        self.perrorTheta = self.errorTheta
+        self.perrorX = self.errorX
+        self.perrorY = self.errorY
+
+        self.ptheta =self.theta
+        self.pT=self.T
+
+        vl = actionL* self.Mv
+        vr = actionR* self.Mv
+
+        if vr - vl != 0:
+            R = (self.W/2)*((vl + vr)/(vr - vl))
+            
+        else:
+            R = 9999999999999
+
+        if R != 0:
+            self.errorTheta = (((.5 * (vl + vr))*self.t)/R)
+
+        self.errorX = self.errorX + R*math.sin(self.errorTheta + self.theta + math.pi/2) - R*math.sin(self.theta + math.pi/2)
+        self.errorY = self.errorY - R*math.cos(self.errorTheta + self.theta + math.pi/2) + R*math.cos(self.theta + math.pi/2)
+
+        self.theta = self.theta + (1/self.W)*(vr - vl) * self.t
+        self.x = self.x - .5 * (vl + vr)*math.sin(self.theta)*self.t
+        self.y = self.y + .5 * (vl + vr)*math.cos(self.theta)*self.t
 
         self.T -= self.t
 
         done = self.T <= 0
 
+        dist = math.dist([self.sweepX,self.sweepY],[self.x,self.y])/self.R
+
+        self.sweepX = self.R*math.sin(self.sweepTheta)
+        self.sweepY = self.R*math.cos(self.sweepTheta)
+        self.sweepTheta = self.sweepTheta + ((.70*self.Mv*self.t)/self.R)
+
+        dist0 = math.dist([0,0],[self.x,self.y])/self.R
         
+        reward = 1-dist
 
-        dist = math.dist([self.sweepX,self.sweepY],[self.x,self.y])
-        dist0 = math.dist([0,0],[self.x,self.y])
+        if dist0 > 1:
+            reward = -1
 
-        # scientifically proven reward function
-        reward = .5-dist +100*(1-(self.T/self.Time))
+        return reward, done
+    
+class CircleGym2CSearch:
 
-        if dist0 > self.R:
-            reward -= 100*(1-(self.T/self.Time))
-            done = True
+    def __init__(self,_W,_t,_T,_R,maxV):
+        self.W = _W
+        self.t = _t
+        self.Time = _T
+        self.T=_T
+        self.R = _R
+        self.Mv = maxV
 
-        if dist > 17.5*(self.T/self.Time)+.5:
-            done = True
+    def reset(self):
+        self.x = 0
+        self.y = self.R -.01
 
-        return np.array([self.x/self.R,self.y/self.R,self.theta/self.Ma,self.sweepX/self.R,self.sweepY/self.R]), reward, done
+        self.px = 0
+        self.py = 0
+
+        self.sweepTheta = 0
+        self.sweepX = self.R*math.sin(self.sweepTheta)
+        self.sweepY = self.R*math.cos(self.sweepTheta)
+
+        self.psweepTheta = 0
+        self.psweepX = 0
+        self.psweepY = 0
+
+        self.errorTheta = 0
+        self.errorX = self.x
+        self.errorY = self.y
+
+        self.perrorTheta = 0
+        self.perrorX = 0
+        self.perrorY = 0
+
+        self.theta = -math.pi/2
+        self.ptheta = 0
+        self.T=self.Time
+        self.pT = 0
+    
+    def stepBack(self):
+        self.x = self.px
+        self.y = self.py
+
+        self.sweepTheta = self.psweepTheta
+        self.sweepX = self.psweepX
+        self.sweepY = self.psweepY
+
+        self.errorTheta = self.perrorTheta
+        self.errorX = self.perrorX
+        self.errorY = self.perrorY
+
+        self.theta =self.ptheta
+        self.T=self.pT
+
+    def step(self,actionL,actionR):
+
+        self.px = self.x
+        self.py = self.y
+
+        self.psweepTheta = self.sweepTheta
+        self.psweepX = self.sweepX
+        self.psweepY = self.sweepY
+
+        self.perrorTheta = self.errorTheta
+        self.perrorX = self.errorX
+        self.perrorY = self.errorY
+
+        self.ptheta =self.theta
+        self.pT=self.T
+
+        vl = actionL* self.Mv
+        vr = actionR* self.Mv
+
+        if vr - vl != 0:
+            R = (self.W/2)*((vl + vr)/(vr - vl))
+            
+        else:
+            R = 9999999999999
+
+        if R != 0:
+            self.errorTheta = (((.5 * (vl + vr))*self.t)/R)
+
+        self.errorX = self.errorX + R*math.sin(self.errorTheta + self.theta + math.pi/2) - R*math.sin(self.theta + math.pi/2)
+        self.errorY = self.errorY - R*math.cos(self.errorTheta + self.theta + math.pi/2) + R*math.cos(self.theta + math.pi/2)
+
+        self.theta = self.theta + (1/self.W)*(vr - vl) * self.t
+        self.x = self.x - .5 * (vl + vr)*math.sin(self.theta)*self.t
+        self.y = self.y + .5 * (vl + vr)*math.cos(self.theta)*self.t
+
+        self.T -= self.t
+
+        done = self.T <= 0
+
+        dist = math.dist([self.sweepX,self.sweepY],[self.x,self.y])/self.R
+
+        self.sweepX = self.R*math.sin(self.sweepTheta)
+        self.sweepY = self.R*math.cos(self.sweepTheta)
+        
+        self.sweepTheta = self.sweepTheta + (.7*self.Mv*self.t/self.R)
+
+        dist0 = math.dist([0,0],[self.x,self.y])/self.R
+        
+        reward = 1-dist
+
+        if dist0 > 1:
+            reward = -1
+
+        return reward, done
+    
+class CircleGym2DSearch:
+
+    def __init__(self,_W,_t,_T,_R,maxV):
+        self.W = _W
+        self.t = _t
+        self.Time = _T
+        self.T=_T
+        self.R = _R
+        self.Mv = maxV
+
+    def reset(self):
+        self.x = 0
+        self.y = self.R -.01
+
+        self.px = 0
+        self.py = 0
+
+        self.sweepTheta = 0
+        self.sweepX = self.R*math.sin(self.sweepTheta)
+        self.sweepY = self.R*math.cos(self.sweepTheta)
+
+        self.psweepTheta = 0
+        self.psweepX = 0
+        self.psweepY = 0
+
+        self.errorTheta = 0
+        self.errorX = self.x
+        self.errorY = self.y
+
+        self.perrorTheta = 0
+        self.perrorX = 0
+        self.perrorY = 0
+
+        self.theta = -math.pi/2
+        self.ptheta = 0
+        self.T=self.Time
+        self.pT = 0
+    
+    def stepBack(self):
+        self.x = self.px
+        self.y = self.py
+
+        self.sweepTheta = self.psweepTheta
+        self.sweepX = self.psweepX
+        self.sweepY = self.psweepY
+
+        self.errorTheta = self.perrorTheta
+        self.errorX = self.perrorX
+        self.errorY = self.perrorY
+
+        self.theta =self.ptheta
+        self.T=self.pT
+
+    def step(self,actionL,actionR):
+
+        self.px = self.x
+        self.py = self.y
+
+        self.psweepTheta = self.sweepTheta
+        self.psweepX = self.sweepX
+        self.psweepY = self.sweepY
+
+        self.perrorTheta = self.errorTheta
+        self.perrorX = self.errorX
+        self.perrorY = self.errorY
+
+        self.ptheta =self.theta
+        self.pT=self.T
+
+        vl = actionL* self.Mv
+        vr = actionR* self.Mv
+
+        if vr - vl != 0:
+            R = (self.W/2)*((vl + vr)/(vr - vl))
+            
+        else:
+            R = 9999999999999
+
+        if R != 0:
+            self.errorTheta = ((((1-.04) * .5 * (vl + vr))*self.t)/R)
+
+        self.errorX = self.errorX + (R*math.sin(self.errorTheta + (1-.08)*self.theta + math.pi/2) - R*math.sin((1-.08)*self.theta + math.pi/2))
+        self.errorY = self.errorY + (-R*math.cos(self.errorTheta + (1-.08)*self.theta + math.pi/2) + R*math.cos((1-.08)*self.theta + math.pi/2))
+
+        self.theta = self.theta + (1/self.W)*(vr - vl) * self.t
+        self.x = self.x - .5 * (vl + vr)*math.sin(self.theta)*self.t
+        self.y = self.y + .5 * (vl + vr)*math.cos(self.theta)*self.t
+
+        self.T -= self.t
+
+        done = self.T <= 0
+
+        dist = math.dist([self.sweepX,self.sweepY],[self.x,self.y])/self.R
+
+        self.sweepX = self.R*math.sin(self.sweepTheta)
+        self.sweepY = self.R*math.cos(self.sweepTheta)
+        
+        self.sweepTheta = self.sweepTheta + (.7*self.Mv*self.t/self.R)
+
+        dist0 = math.dist([0,0],[self.x,self.y])/self.R
+        
+        reward = 1-dist
+
+        if dist0 > 1:
+            reward = -1
+
+        return reward, done
