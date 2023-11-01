@@ -33,12 +33,15 @@ print('Performing classification on ImageNet validation set...')
 with torch.no_grad():
     for images, labels in val_loader:
         images, labels = images.to(device), labels.to(device)
-        outputs = model(images)
-        _, predictions = torch.max(outputs, dim=1)
 
-        print('Top-1 Accuracy: {:.2f}%'.format(torch.sum(predictions == labels).item() / labels.size(0) * 100))
+        outputs = model(images)
         _, top_5_predictions = torch.topk(outputs, k=5, dim=1)
+        top_1_predictions = top_5_predictions[:, 0]
+
+        top_1_accuracy = torch.sum(top_1_predictions == labels).item() / labels.size(0) * 100
         top_5_accuracy = torch.sum(torch.any(top_5_predictions == labels.unsqueeze(dim=1), dim=1)).item() / labels.size(0) * 100
+
+        print(f'Top-1 Accuracy: {top_1_accuracy:.2f}%')
         print(f'Top-5 Accuracy: {top_5_accuracy:.2f}%')
         break # Only classify one batch of 100 images
 
