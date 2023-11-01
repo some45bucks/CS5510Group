@@ -3,20 +3,20 @@ import torch
 from torch.utils.data import DataLoader, RandomSampler
 from torchvision.datasets import ImageNet
 from torchvision.models import alexnet
-from torchvision.transforms import Compose, Resize, CenterCrop, ToTensor, Normalize
+from torchvision.transforms import transforms
 
 device_type = 'cuda' if torch.cuda.is_available() else 'cpu'
 device = torch.device(device_type)
-print(f'Using device: {device_type}')
+print(f'Using device: {device_type}\n')
 
 NUM_IMAGES = 100
 
 # Pre-process the images to match the input size of torchvision's AlexNet, using the same pre-processing as in the original paper
-data_transform = Compose([
-    Resize(256),
-    CenterCrop(224),
-    ToTensor(),
-    Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+data_transform = transforms.Compose([
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 print('Loading ImageNet Dataset (this may take a while)...')
