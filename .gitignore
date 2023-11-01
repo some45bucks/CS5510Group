@@ -1,6 +1,7 @@
 # we don't need to update these every push
 saves/
 videos/
+*.mp4
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

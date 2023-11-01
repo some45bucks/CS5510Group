@@ -1,232 +1,498 @@
-import random
-from collections import deque
 import numpy as np
+import math
 
-import gym
-import torch
-
-from circleGym import CircleGym
+from CircleGym import CircleGym2ASearch,CircleGym2BSearch,CircleGym2CSearch,CircleGym2DSearch
 
 import matplotlib.pyplot as plt
-import seaborn as sns
+from matplotlib.lines import Line2D
 
-SAVE_PATH = "./saves/CartPoleRecent.pt"
+def solve2A(depth=1000):
+
+    environment = CircleGym2ASearch(10.668,.5,28,18)
+    environment.reset()
+
+    done = False
+
+    pointsX = []
+    pointsY = []
+    thetas = []
+    actions = []
+    ex = []
+    ey = []
+    error = []
+    sweepx = []
+    sweepy = []
+
+    while not done:
+        high = 1
+        low = -1
+        mid = 0
+        print(environment.T)
+        for i in range(depth):
+
+            highAction = (high+mid)/2
+            lowAction = (low+mid)/2
+
+            highReward, _ = environment.step(highAction)
+            environment.stepBack()
+            lowReward, _ = environment.step(lowAction)
+            environment.stepBack()
+
+            if highReward > lowReward:
+                low = mid
+                mid = (high + low)/2
+                bestAction = highAction
+            else:
+                high = mid
+                mid = (high + low)/2
+                bestAction = lowAction
+
+        pointsX.append(environment.x)
+        pointsY.append(environment.y)
+        thetas.append(environment.theta)
+        actions.append(bestAction)
+        ex.append(environment.errorX)
+        ey.append(environment.errorY)
+        error.append(math.dist([pointsX[-1],pointsY[-1]],[environment.errorX,environment.errorY]))
+
+        _,done = environment.step(bestAction)
+
+        sweepx.append(environment.sweepX)
+        sweepy.append(environment.sweepY)
+
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
+    c = [.5*i for i in range(len(pointsX))]
+    fig, ax = plt.subplots()
+    ax.add_patch(plt.Circle((0, 0), 18, color='r'))
+    ax.plot(pointsX, pointsY)
+    ax.plot(ex, ey)
+    ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
 
 
-# this is the Neural Network also called a Policy
-class QualityNN(torch.nn.Module):
-    def __init__(self, observation_space, action_space):
-        super(QualityNN, self).__init__()
-        #this is setting up the layers with inputs and outputs
-        self.layer1 = torch.nn.Linear(observation_space, 64)
-        self.layer2 = torch.nn.Linear(64, 128)
-        self.layer3 = torch.nn.Linear(128, action_space)
-
-    #feed forward with inputs
-    def forward(self, x):
-        x = self.layer1(x)
-        x = torch.nn.functional.leaky_relu(x)
-
-        x = self.layer2(x)
-        x = torch.nn.functional.leaky_relu(x)
-
-        x = self.layer3(x)
-
-        # output is the amount of reward expected with this action
-        return x
-
-# we store states and next states in memory adn then train the agent once it's done with a scene
-#it acts like a queue so we only train on the x most recent
-class Memory(object):
-    def __init__(self, max_size=100):
-        self.memory = deque(maxlen=max_size)
-
-    def push(self, element):
-        self.memory.append(element)
-
-    def get_batch(self, batch_size=4):
-        if batch_size > len(self.memory):
-            batch_size = len(self.memory)
-        return random.sample(self.memory, batch_size)
-
-    def __repr__(self):
-        return f"Current elements in memory: {len(self.memory)}"
-
-    def __len__(self):
-        return len(self.memory)
-
-# this is the actual agent that contains the NN
-class Agent(object):
-    def __init__(self, environment):
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model = QualityNN(environment.observation_space.shape[0], environment.action_space.n).to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=2e-3)
-
-        #decay the randomness over time
-        self.decay = 0.9995
-        self.randomness = 1.00
-        self.min_randomness = 0.001
-
-    def act(self, state):
-        # move the state to a Torch Tensor
-        state = torch.from_numpy(state).float().to(self.device)
-
-        # find the quality of both actions (expected reward)
-        qualities = self.model(state).cpu()
-
-        # sometimes take a random action (so we don't get stuck in local mins as easy)
-        if np.random.rand() <= self.randomness:
-            action = np.random.randint(low=0, high=qualities.size(dim=0))
-        else:
-            action = torch.argmax(qualities).item() # just take the action with most expected reward
-
-        # return that action
-        return action
-
-    def update(self, memory_batch):
-        # unpack our batch and convert to tensors
-        states, next_states, actions, rewards = self.unpack_batch(memory_batch)
-
-        # compute what the output is (old expected qualities)
-        old_targets = self.old_targets(states, actions)
-
-        # compute what the output should be (new expected qualities)
-        # longer version: we save states in pairs in memory and the action that was taken to get from the past state
-        # to the future state. we then train the model to predict what wit will predict in the next state if it takes 
-        # that action, because the NN should by trying to learn what reward is expected at each action and that should 
-        # take into future actions predicted rewards. we also add in the reward it gets just by living another state.
-        # doing this the NN should predict the total reward it will get by taking an action, and then choose the action 
-        # with the best reward. LMK what you are still confused about on discord.
-        new_targets = self.new_targets(states, next_states, rewards, actions)
-
-        # compute the difference between old and new estimates
-        loss = torch.nn.MSELoss()
-        loss = loss(old_targets, new_targets)
-
-        # apply difference to the neural network through grad descent
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-    def old_targets(self, states, actions):
-        return self.model(states).gather(1, actions)
-
-    def new_targets(self, states, next_states, rewards, actions):
-        return (
-            rewards +
-            (torch.max(self.model(next_states), dim=1, keepdim=True)[0]) 
-        )
-
-    #helper function
-    def unpack_batch(self, batch):
-        states = [item[0] for item in batch]
-        states = torch.tensor(states).float().to(self.device)
-
-        next_states = [item[1] for item in batch]
-        next_states = torch.tensor(next_states).float().to(self.device)
-
-        # unsqueeze(1) makes 2d array. [1, 0, 1, ...] -> [[1], [0], [1], ...]
-        actions = [item[2] for item in batch]
-        actions = torch.tensor(actions).long().unsqueeze(1).to(self.device)
-
-        rewards = [item[3] for item in batch]
-        rewards = torch.tensor(rewards).float().unsqueeze(1).to(self.device)
-
-        return states, next_states, actions, rewards
-
-    #helper function
-    def update_randomness(self):
-        self.randomness *= self.decay
-        self.randomness = max(self.randomness, self.min_randomness)
-
-def train(max_iteration = 3500,logging_iteration = 50):
-
-    learning = []
-
-    environment = CircleGym() #TODO
-    agent = Agent(environment)
-    memory = Memory(max_size=10000)
-
-    for iteration in range(1, max_iteration + 1):
-        steps = 0
-        done = False
-        state = environment.reset()
-        
-        #main loop where the agent interacts with the environment
-        while not done:
-            action = agent.act(state)
-            next_state, reward, done, *_ = environment.step(action)
-
-            memory.push(element=(state, next_state, action, reward))
-
-            state = next_state
-            steps += 1
-
-        #get some batch size to train on from memory
-        memory_batch = memory.get_batch(batch_size=256)
-        
-        #where the agent trains itself
-        agent.update(memory_batch)
-        agent.update_randomness()
-
-        learning.append(steps)
-        if iteration % logging_iteration == 0:
-            print(f"Iteration: {iteration}")
-            print(f"  Moving-Average Steps: {np.mean(learning[-logging_iteration:]):.4f}")
-            print(f"  Memory-Buffer Size: {len(memory.memory)}")
-            print(f"  Agent Randomness: {agent.randomness:.3f}")
-            torch.save(agent.model.state_dict(), SAVE_PATH)
+    custom_lines = [Line2D([0], [0], color='blue', lw=4),
+            Line2D([0], [0], color='orange', lw=4),]
     
-    torch.save(agent.model.state_dict(), SAVE_PATH)
-          
-    x = np.arange(0, len(learning), logging_iteration)
-    y = np.add.reduceat(learning, x) / logging_iteration
+    ax.legend(custom_lines, ['Predicted Path', 'True Path'])
 
-    sns.lineplot(x=x, y=y)
-    plt.title("Cart Lifespan During Training")
-    plt.xlabel("Episodes")
-    plt.ylabel("Lifespan Steps")
-    plt.show()
+    plt.axis([-1.5*18, 1.5*18, -1.5*18, 1.5*18])
+    x0,x1 = ax.get_xlim()
+    y0,y1 = ax.get_ylim()
+    ax.set_aspect(abs(x1-x0)/abs(y1-y0))
 
-# for testing and generating video
-class TestAgent(object):
-    def __init__(self, environment):
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model = QualityNN(environment.inputs, environment.outputs).to(self.device)
+    plt.title("Path")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    fig.savefig("./Question2/Q2A/Q2A_Path.png")
+    plt.close()
 
-    def act(self, state):
-        # move the state to a Torch Tensor
-        state = torch.from_numpy(state).float().to(self.device)
+    
+    fig, ax = plt.subplots()
+    plt.title("Error Over Time")
+    plt.xlabel("Time")
+    plt.ylabel("Error")
+    ax.plot(c,error)
+    fig.savefig("./Question2/Q2A/Q2A_Error.png")
+    plt.close()
 
-        # find the quality of both actions (expected reward)
-        qualities = self.model(state).cpu()
+    return pointsX, pointsY, thetas, actions, error
 
-        action = torch.argmax(qualities).item() # just take the action with most expected reward
+def solve2B(depth=1000):
 
-        # return that action
-        return action
+    environment = CircleGym2BSearch(3.048,.5,28,18,8)
+    environment.reset()
 
-def test():
-    environment = gym.make("CartPole-v1")
-    agent = TestAgent(environment)
-    agent.model = QualityNN(environment.inputs, environment.outputs)
-    agent.model.load_state_dict(torch.load(SAVE_PATH))
-    agent.model.eval()
+    done = False
 
-    # will save video for us
-    environment = gym.wrappers.RecordVideo(
-        gym.make("CartPole-v1", render_mode="rgb_array"),
-        video_folder="./videos",
-        episode_trigger=lambda x: x == 0
-    )
+    pointsX = []
+    pointsY = []
+    thetas = []
+    actionsL = []
+    actionsR = []
+    ex = []
+    ey = []
+    error = []
+    sweepx = []
+    sweepy = []
 
-    for iteration in range(1, 2):
-        steps = 0
-        done = False
-        state = environment.reset()
+    while not done:
+        highL = 1
+        lowL = -1
+        midL = 0
+        highR = 1
+        lowR = -1
+        midR = 0
+        print(environment.T)
+        for i in range(depth):
 
-        while not done:
-            steps += 1
+            highActionL = (highL+midL)/2
+            lowActionL = (lowL+midL)/2
 
-            action = agent.act(state)
-            state, reward, done, *_ = environment.step(action)
+            highActionR = (highR+midR)/2
+            lowActionR = (lowR+midR)/2
+
+            hhReward, _ = environment.step(highActionL,highActionR)
+            environment.stepBack()
+            hlReward, _ = environment.step(highActionL,lowActionR)
+            environment.stepBack()
+            lhReward, _ = environment.step(lowActionL,highActionR)
+            environment.stepBack()
+            llReward, _ = environment.step(lowActionL,lowActionR)
+            environment.stepBack()
+
+            maxReward = max(max(hhReward,hlReward),max(lhReward,llReward))
+
+            if hhReward == maxReward:
+                lowL = midL
+                midL = (highL + lowL)/2
+
+                lowR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = highActionL
+                bestActionR = highActionR
+
+            elif hlReward == maxReward:
+                lowL = midL
+                midL = (highL + lowL)/2
+
+                highR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = highActionL
+                bestActionR = lowActionR
+
+            elif lhReward == maxReward:
+                highL = midL
+                midL = (highL + lowL)/2
+
+                lowR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = lowActionL
+                bestActionR = highActionR
+            else:
+                highL = midL
+                midL = (highL + lowL)/2
+
+                highR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = lowActionL
+                bestActionR = lowActionR
+
+        pointsX.append(environment.x)
+        pointsY.append(environment.y)
+        thetas.append(environment.theta)
+        actionsL.append(bestActionL)
+        actionsR.append(bestActionR)
+        ex.append(environment.errorX)
+        ey.append(environment.errorY)
+        error.append(math.dist([pointsX[-1],pointsY[-1]],[environment.errorX,environment.errorY]))
+
+        _,done = environment.step(bestActionL,bestActionR)
+
+        sweepx.append(environment.sweepX)
+        sweepy.append(environment.sweepY)
+
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+    
+    c = [.5*i for i in range(len(pointsX))]
+    fig, ax = plt.subplots()
+    ax.add_patch(plt.Circle((0, 0), 18, color='r'))
+    ax.plot(pointsX, pointsY)
+    ax.plot(ex, ey)
+    ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
+
+    custom_lines = [Line2D([0], [0], color='blue', lw=4),
+            Line2D([0], [0], color='orange', lw=4),]
+    
+    ax.legend(custom_lines, ['Predicted Path', 'True Path'])
+
+    plt.axis([-1.5*18, 1.5*18, -1.5*18, 1.5*18])
+    x0,x1 = ax.get_xlim()
+    y0,y1 = ax.get_ylim()
+    ax.set_aspect(abs(x1-x0)/abs(y1-y0))
+
+    plt.title("Path")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    fig.savefig("./Question2/Q2B/Q2B_Path.png")
+    plt.close()
+
+    
+    fig, ax = plt.subplots()
+    plt.title("Error Over Time")
+    plt.xlabel("Time")
+    plt.ylabel("Error")
+    ax.plot(c,error)
+    fig.savefig("./Question2/Q2B/Q2B_Error.png")
+    plt.close()
+
+    return pointsX, pointsY, thetas, actionsL, actionsR, error
+
+def solve2C(depth=1000,tname="t1"):
+    if tname == "t1":
+        t = 1
+    elif tname == "t_1":
+        t = .1
+    elif tname == "t_01":
+        t = .01
+
+    environment = CircleGym2CSearch(3.048,t,28,9,4)
+    environment.reset()
+
+    done = False
+
+    pointsX = []
+    pointsY = []
+    thetas = []
+    actionsL = []
+    actionsR = []
+    ex = []
+    ey = []
+    error = []
+    sweepx = []
+    sweepy = []
+
+    while not done:
+        highL = 1
+        lowL = -1
+        midL = 0
+        highR = 1
+        lowR = -1
+        midR = 0
+        print(environment.T)
+        for i in range(depth):
+
+            highActionL = (highL+midL)/2
+            lowActionL = (lowL+midL)/2
+
+            highActionR = (highR+midR)/2
+            lowActionR = (lowR+midR)/2
+
+            hhReward, _ = environment.step(highActionL,highActionR)
+            environment.stepBack()
+            hlReward, _ = environment.step(highActionL,lowActionR)
+            environment.stepBack()
+            lhReward, _ = environment.step(lowActionL,highActionR)
+            environment.stepBack()
+            llReward, _ = environment.step(lowActionL,lowActionR)
+            environment.stepBack()
+
+            maxReward = max(max(hhReward,hlReward),max(lhReward,llReward))
+
+            if hhReward == maxReward:
+                lowL = midL
+                midL = (highL + lowL)/2
+
+                lowR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = highActionL
+                bestActionR = highActionR
+
+            elif hlReward == maxReward:
+                lowL = midL
+                midL = (highL + lowL)/2
+
+                highR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = highActionL
+                bestActionR = lowActionR
+
+            elif lhReward == maxReward:
+                highL = midL
+                midL = (highL + lowL)/2
+
+                lowR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = lowActionL
+                bestActionR = highActionR
+            else:
+                highL = midL
+                midL = (highL + lowL)/2
+
+                highR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = lowActionL
+                bestActionR = lowActionR
+
+        pointsX.append(environment.x)
+        pointsY.append(environment.y)
+        thetas.append(environment.theta)
+        actionsL.append(bestActionL)
+        actionsR.append(bestActionR)
+        ex.append(environment.errorX)
+        ey.append(environment.errorY)
+        error.append(math.dist([pointsX[-1],pointsY[-1]],[environment.errorX,environment.errorY]))
+
+        _,done = environment.step(bestActionL,bestActionR)
+
+        sweepx.append(environment.sweepX)
+        sweepy.append(environment.sweepY)
+
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+    
+    
+    fig, ax = plt.subplots()
+    ax.add_patch(plt.Circle((0, 0), 9, color='r'))
+    ax.plot(pointsX, pointsY)
+    ax.plot(ex, ey)
+    ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
+
+    custom_lines = [Line2D([0], [0], color='blue', lw=4),
+            Line2D([0], [0], color='orange', lw=4),]
+    
+    ax.legend(custom_lines, ['Predicted Path', 'True Path'])
+
+    plt.axis([-1.5*9, 1.5*9, -1.5*9, 1.5*9])
+    x0,x1 = ax.get_xlim()
+    y0,y1 = ax.get_ylim()
+    ax.set_aspect(abs(x1-x0)/abs(y1-y0))
+
+    plt.title("Path")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    fig.savefig(f"./Question2/Q2C/{tname}/Q2C_{tname}_Path.png")
+    plt.close()
+
+    return pointsX, pointsY, thetas, actionsL, actionsR, error
+
+def solve2D(depth=1000,tname="t1"):
+    if tname == "t1":
+        t = 1
+    elif tname == "t_1":
+        t = .1
+    elif tname == "t_01":
+        t = .01
+
+    environment = CircleGym2DSearch(3.048,t,28,9,4)
+    environment.reset()
+
+    done = False
+
+    pointsX = []
+    pointsY = []
+    thetas = []
+    actionsL = []
+    actionsR = []
+    ex = []
+    ey = []
+    error = []
+    sweepx = []
+    sweepy = []
+
+    while not done:
+        highL = 1
+        lowL = -1
+        midL = 0
+        highR = 1
+        lowR = -1
+        midR = 0
+        print(environment.T)
+        for i in range(depth):
+
+            highActionL = (highL+midL)/2
+            lowActionL = (lowL+midL)/2
+
+            highActionR = (highR+midR)/2
+            lowActionR = (lowR+midR)/2
+
+            hhReward, _ = environment.step(highActionL,highActionR)
+            environment.stepBack()
+            hlReward, _ = environment.step(highActionL,lowActionR)
+            environment.stepBack()
+            lhReward, _ = environment.step(lowActionL,highActionR)
+            environment.stepBack()
+            llReward, _ = environment.step(lowActionL,lowActionR)
+            environment.stepBack()
+
+            maxReward = max(max(hhReward,hlReward),max(lhReward,llReward))
+
+            if hhReward == maxReward:
+                lowL = midL
+                midL = (highL + lowL)/2
+
+                lowR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = highActionL
+                bestActionR = highActionR
+
+            elif hlReward == maxReward:
+                lowL = midL
+                midL = (highL + lowL)/2
+
+                highR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = highActionL
+                bestActionR = lowActionR
+
+            elif lhReward == maxReward:
+                highL = midL
+                midL = (highL + lowL)/2
+
+                lowR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = lowActionL
+                bestActionR = highActionR
+            else:
+                highL = midL
+                midL = (highL + lowL)/2
+
+                highR = midR
+                midR = (highR + lowR)/2
+
+                bestActionL = lowActionL
+                bestActionR = lowActionR
+
+        pointsX.append(environment.x)
+        pointsY.append(environment.y)
+        thetas.append(environment.theta)
+        actionsL.append(bestActionL)
+        actionsR.append(bestActionR)
+        ex.append(environment.errorX)
+        ey.append(environment.errorY)
+        error.append(math.dist([pointsX[-1],pointsY[-1]],[environment.errorX,environment.errorY]))
+
+        _,done = environment.step(bestActionL,bestActionR)
+
+        sweepx.append(environment.sweepX)
+        sweepy.append(environment.sweepY)
+
+    import os    
+    os.environ['KMP_DUPLICATE_LIB_OK']='True'
+    
+    c = [.5*i for i in range(len(pointsX))]
+    fig, ax = plt.subplots()
+    ax.add_patch(plt.Circle((0, 0), 9, color='r'))
+    ax.plot(pointsX, pointsY)
+    ax.plot(ex, ey)
+    ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
+
+    custom_lines = [Line2D([0], [0], color='blue', lw=4),
+            Line2D([0], [0], color='orange', lw=4),]
+    
+    ax.legend(custom_lines, ['Predicted Path', 'True Path'])
+
+    plt.axis([-1.5*9, 1.5*9, -1.5*9, 1.5*9])
+    x0,x1 = ax.get_xlim()
+    y0,y1 = ax.get_ylim()
+    ax.set_aspect(abs(x1-x0)/abs(y1-y0))
+
+    plt.title("Path")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    fig.savefig(f"./Question2/Q2D/{tname}/Q2D_{tname}_Path.png")
+    plt.close()
+
+    return pointsX, pointsY, thetas, actionsL, actionsR, error

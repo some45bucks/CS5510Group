@@ -1,5 +1,5 @@
-from CartPoleRL import train, test
+from Question5.Q5C.CartPoleRL import train, test
 
-#train(3500,50)
+#train(4500,50)
 
 test()
