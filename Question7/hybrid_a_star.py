@@ -17,7 +17,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from dynamic_programming_heuristic import calc_distance_heuristic
 import reeds_shepp_path_planning as rs
-from car import move, check_car_collision, MAX_STEER, WB, plot_car, BUBBLE_R
+from ss_car import move, check_car_collision, MAX_STEER, WB, plot_car, BUBBLE_R
 
 XY_GRID_RESOLUTION = 2.0  # [m]
 YAW_GRID_RESOLUTION = np.deg2rad(15.0)  # [rad]
@@ -30,7 +30,7 @@ STEER_CHANGE_COST = 5.0  # steer angle change penalty cost
 STEER_COST = 1.0  # steer angle change penalty cost
 H_COST = 5.0  # Heuristic cost
 
-show_animation = False
+show_animation = True
 
 
 class Node:
@@ -302,7 +302,7 @@ def hybrid_a_star_planning(start, goal, ox, oy, xy_resolution, yaw_resolution):
             current, goal_node, config, ox, oy, obstacle_kd_tree)
 
         if is_updated:
-            print("path found")
+            # print("path found")
             break
 
         for neighbor in get_neighbors(current, config, ox, oy,
@@ -378,32 +378,34 @@ def calc_index(node, c):
 
 
 def main():
-    print("Start Hybrid A* planning")
+    # Define the start and goal positions
+    sx, sy = 20.0, 20.0
+    gx, gy = 60.0, 60.0
 
+    # Set obstacle positions
     ox, oy = [], []
-
-    for i in range(60):
+    for i in range(0, 70):
         ox.append(i)
         oy.append(0.0)
-    for i in range(60):
-        ox.append(60.0)
+    for i in range(0, 70):
+        ox.append(70.0)
         oy.append(i)
-    for i in range(61):
+    for i in range(0, 71):
         ox.append(i)
-        oy.append(60.0)
-    for i in range(61):
+        oy.append(70.0)
+    for i in range(0, 71):
         ox.append(0.0)
         oy.append(i)
-    for i in range(40):
-        ox.append(20.0)
+    for i in range(0, 50):
+        ox.append(30.0)
         oy.append(i)
-    for i in range(40):
-        ox.append(40.0)
-        oy.append(60.0 - i)
+    for i in range(0, 50):
+        ox.append(50.0)
+        oy.append(70.0 - i)
 
     # Set Initial parameters
-    start = [10.0, 10.0, np.deg2rad(90.0)]
-    goal = [50.0, 50.0, np.deg2rad(-90.0)]
+    start = [sx, sy, np.deg2rad(90.0)]
+    goal = [gx, gy, np.deg2rad(-90.0)]
 
     print("start : ", start)
     print("goal : ", goal)
@@ -431,7 +433,7 @@ def main():
             plt.grid(True)
             plt.axis("equal")
             plot_car(i_x, i_y, i_yaw)
-            plt.pause(0.0001)
+            plt.pause(0.000001)
 
     print(__file__ + " done!!")
 
