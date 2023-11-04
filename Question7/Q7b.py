@@ -29,14 +29,14 @@ def aug_dist(u, v, display=False):
     if u < v:
         if display:
             print(f'{2}')
-        return 2
+        return 2 # +1 for traversal 2
     elif u > v:
         if display:
             print(f'{0.5}')
-        return 0.5
+        return 0.5 # +1 for traversal 2
     if display:
         print(f'{1}')
-    return 1
+    return 1 # +1 for traversal 2
 
 def heuristic(u, t):
     return math.sqrt((u[0] - t[0])**2 + (u[1] - t[1])**2)
