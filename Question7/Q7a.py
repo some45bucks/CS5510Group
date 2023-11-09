@@ -6,14 +6,14 @@ import random
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def generate_map(obstacle_list, grid_size, robot_radius):
+def generate_map(obstacle_list, robot_radius):
     # Determine the dimensions (rows and columns) of the grid
     max_x = int(max(obstacle[0] + obstacle[2] for obstacle in obstacle_list) + robot_radius)
     max_y = int(max(obstacle[1] + obstacle[2] for obstacle in obstacle_list) + robot_radius)
 
     # Calculate the number of rows and columns based on the grid size
-    num_rows = int(max_y / grid_size)+1
-    num_cols = int(max_x / grid_size)+1
+    num_rows = int(max_y)+1
+    num_cols = int(max_x)+1
 
     map = [[0] * num_cols for _ in range(num_rows)]
 
@@ -21,8 +21,8 @@ def generate_map(obstacle_list, grid_size, robot_radius):
     for obstacle in obstacle_list:
         x, y, radius = obstacle
         # Calculate the grid cell that contains the center of the obstacle
-        row = int(y / grid_size)
-        col = int(x / grid_size)
+        row = int(y / 1)
+        col = int(x / 1)
 
         # Mark grid cells as obstacles
         map[row][col] = 1
@@ -35,13 +35,10 @@ def run_implemented_planner(parameters, iterations=10):
     for _ in range(iterations):
         start_time = time.time()
         path = planner.planner(parameters[0], parameters[1], parameters[2], parameters[3])
-        # Assuming path is a list of (x, y) points
         grid_path = []
         for x, y in path:
-            # Convert x and y to grid cell indices (row and column)
-            row = int(y / grid_size)
-            col = int(x / grid_size)
-            # Append the grid cell indices to the grid_path
+            row = int(y)
+            col = int(x)
             grid_path.append((row, col))
 
         end_time = time.time()
@@ -57,7 +54,7 @@ def run_implemented_planner(parameters, iterations=10):
         
         total_cost += path_cost
 
-    average_cost = grid_size*total_cost / iterations
+    average_cost = total_cost / iterations
     average_time = total_time * 1000 / iterations
 
     return average_cost, average_time
@@ -136,7 +133,7 @@ if __name__ == '__main__':
     ox = [obstacle[0] for obstacle in obstacle_list]
     oy = [obstacle[1] for obstacle in obstacle_list]
     
-    map = generate_map(obstacle_list, grid_size, robot_radius)    
+    map = generate_map(obstacle_list, robot_radius)    
     # Create a map image
     plt.figure(figsize=(8, 8))
     plt.plot(ox, oy, "ok", markersize=10)  # Obstacle positions
@@ -148,8 +145,8 @@ if __name__ == '__main__':
     plt.title("Grid Map with Obstacles")
     plt.show()
 
-    start = (int(sx/grid_size), int(sy/grid_size))
-    end = (int(gx/grid_size), int(gy/grid_size))
+    start = (int(sx), int(sy))
+    end = (int(gx), int(gy))
     implemented_planner_parameters = [map, start, end, True]
     a_star_planner = a_star.AStarPlanner(ox, oy, grid_size, robot_radius)
     bidir_a_star_planner = bd_a_star.BidirectionalAStarPlanner(ox, oy, grid_size, robot_radius)
