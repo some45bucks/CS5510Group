@@ -1,5 +1,5 @@
 import numpy as np
-import math
+import time
 
 from CircleGym import CircleGym2ASearch,CircleGym2BSearch,CircleGym2CSearch,CircleGym2DSearch
 
@@ -8,7 +8,7 @@ from matplotlib.lines import Line2D
 
 def solve2A(depth=1000):
 
-    environment = CircleGym2ASearch(10.668,.5,28,18)
+    environment = CircleGym2ASearch(10.668,.5,18)
     environment.reset()
 
     done = False
@@ -17,17 +17,12 @@ def solve2A(depth=1000):
     pointsY = []
     thetas = []
     actions = []
-    ex = []
-    ey = []
-    error = []
-    sweepx = []
-    sweepy = []
+    dist = []
 
     while not done:
         high = 1
         low = -1
         mid = 0
-        print(environment.T)
         for i in range(depth):
 
             highAction = (high+mid)/2
@@ -51,14 +46,13 @@ def solve2A(depth=1000):
         pointsY.append(environment.y)
         thetas.append(environment.theta)
         actions.append(bestAction)
-        ex.append(environment.errorX)
-        ey.append(environment.errorY)
-        error.append(math.dist([pointsX[-1],pointsY[-1]],[environment.errorX,environment.errorY]))
+        
 
         _,done = environment.step(bestAction)
 
-        sweepx.append(environment.sweepX)
-        sweepy.append(environment.sweepY)
+        dist.append(environment.dist0 * environment.R)
+        
+        dist.append
 
     import os    
     os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -67,7 +61,6 @@ def solve2A(depth=1000):
     fig, ax = plt.subplots()
     ax.add_patch(plt.Circle((0, 0), 18, color='r'))
     ax.plot(pointsX, pointsY)
-    ax.plot(ex, ey)
     ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
 
 
@@ -87,20 +80,11 @@ def solve2A(depth=1000):
     fig.savefig("./Question2/Q2A/Q2A_Path.png")
     plt.close()
 
-    
-    fig, ax = plt.subplots()
-    plt.title("Error Over Time")
-    plt.xlabel("Time")
-    plt.ylabel("Error")
-    ax.plot(c,error)
-    fig.savefig("./Question2/Q2A/Q2A_Error.png")
-    plt.close()
-
-    return pointsX, pointsY, thetas, actions, error
+    return pointsX, pointsY, thetas, actions, dist
 
 def solve2B(depth=1000):
 
-    environment = CircleGym2BSearch(3.048,.5,28,18,8)
+    environment = CircleGym2BSearch(3.048,.5,18)
     environment.reset()
 
     done = False
@@ -110,91 +94,46 @@ def solve2B(depth=1000):
     thetas = []
     actionsL = []
     actionsR = []
-    ex = []
-    ey = []
-    error = []
-    sweepx = []
-    sweepy = []
+    dist = []
 
     while not done:
-        highL = 1
-        lowL = -1
-        midL = 0
-        highR = 1
-        lowR = -1
-        midR = 0
-        print(environment.T)
+        high = 1
+        low = 0
+        mid = (high + low)/2
         for i in range(depth):
 
-            highActionL = (highL+midL)/2
-            lowActionL = (lowL+midL)/2
+            highAction = (high+mid)/2
+            lowAction = (low+mid)/2
 
-            highActionR = (highR+midR)/2
-            lowActionR = (lowR+midR)/2
-
-            hhReward, _ = environment.step(highActionL,highActionR)
+            hReward, _ = environment.step(1,highAction)
             environment.stepBack()
-            hlReward, _ = environment.step(highActionL,lowActionR)
-            environment.stepBack()
-            lhReward, _ = environment.step(lowActionL,highActionR)
-            environment.stepBack()
-            llReward, _ = environment.step(lowActionL,lowActionR)
+            lReward, _ = environment.step(1,lowAction)
             environment.stepBack()
 
-            maxReward = max(max(hhReward,hlReward),max(lhReward,llReward))
+            maxReward = max(hReward,lReward)
 
-            if hhReward == maxReward:
-                lowL = midL
-                midL = (highL + lowL)/2
+            if hReward == maxReward:
+                low = mid
+                mid = (high + low)/2
 
-                lowR = midR
-                midR = (highR + lowR)/2
+                bestAction = highAction
 
-                bestActionL = highActionL
-                bestActionR = highActionR
-
-            elif hlReward == maxReward:
-                lowL = midL
-                midL = (highL + lowL)/2
-
-                highR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = highActionL
-                bestActionR = lowActionR
-
-            elif lhReward == maxReward:
-                highL = midL
-                midL = (highL + lowL)/2
-
-                lowR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = lowActionL
-                bestActionR = highActionR
             else:
-                highL = midL
-                midL = (highL + lowL)/2
+                high = mid
+                mid = (high + low)/2
 
-                highR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = lowActionL
-                bestActionR = lowActionR
+                bestAction = lowAction
 
         pointsX.append(environment.x)
         pointsY.append(environment.y)
+        
         thetas.append(environment.theta)
-        actionsL.append(bestActionL)
-        actionsR.append(bestActionR)
-        ex.append(environment.errorX)
-        ey.append(environment.errorY)
-        error.append(math.dist([pointsX[-1],pointsY[-1]],[environment.errorX,environment.errorY]))
+        actionsL.append(1)
+        actionsR.append(bestAction)
 
-        _,done = environment.step(bestActionL,bestActionR)
+        _,done = environment.step(1,bestAction)
 
-        sweepx.append(environment.sweepX)
-        sweepy.append(environment.sweepY)
+        dist.append(environment.dist0 * environment.R)
 
     import os    
     os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -203,7 +142,6 @@ def solve2B(depth=1000):
     fig, ax = plt.subplots()
     ax.add_patch(plt.Circle((0, 0), 18, color='r'))
     ax.plot(pointsX, pointsY)
-    ax.plot(ex, ey)
     ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
 
     custom_lines = [Line2D([0], [0], color='blue', lw=4),
@@ -222,129 +160,62 @@ def solve2B(depth=1000):
     fig.savefig("./Question2/Q2B/Q2B_Path.png")
     plt.close()
 
-    
-    fig, ax = plt.subplots()
-    plt.title("Error Over Time")
-    plt.xlabel("Time")
-    plt.ylabel("Error")
-    ax.plot(c,error)
-    fig.savefig("./Question2/Q2B/Q2B_Error.png")
-    plt.close()
+    return pointsX, pointsY, thetas, actionsL, actionsR, dist
 
-    return pointsX, pointsY, thetas, actionsL, actionsR, error
-
-def solve2C(depth=1000,tname="t1"):
+def solve2C(tname="t1"):
     if tname == "t1":
         t = 1
+        angle = 0.764
     elif tname == "t_1":
         t = .1
+        angle = .976
     elif tname == "t_01":
         t = .01
+        angle = .998
 
-    environment = CircleGym2CSearch(3.048,t,28,9,4)
-    environment.reset()
+    environment = CircleGym2CSearch(3.048,t,9)
 
-    done = False
+    
 
-    pointsX = []
-    pointsY = []
-    thetas = []
-    actionsL = []
-    actionsR = []
-    ex = []
-    ey = []
-    error = []
-    sweepx = []
-    sweepy = []
+    totalError = 0
+    t0 = time.time()
 
-    while not done:
-        highL = 1
-        lowL = -1
-        midL = 0
-        highR = 1
-        lowR = -1
-        midR = 0
-        print(environment.T)
-        for i in range(depth):
+    for i in range(100):
+        done = False
+        environment.reset(angle)
 
-            highActionL = (highL+midL)/2
-            lowActionL = (lowL+midL)/2
+        pointsX = []
+        pointsY = []
+        pointsXreal = []
+        pointsYreal = []
+        thetas = []
 
-            highActionR = (highR+midR)/2
-            lowActionR = (lowR+midR)/2
+        count = 0
+        error = 0
+        while not done:
+            pointsX.append(environment.x)
+            pointsY.append(environment.y)
+            thetas.append(environment.theta)
+            e, done = environment.step()
+            pointsXreal.append(environment.sweepX)
+            pointsYreal.append(environment.sweepY)
+            error += e
+            count += 1
 
-            hhReward, _ = environment.step(highActionL,highActionR)
-            environment.stepBack()
-            hlReward, _ = environment.step(highActionL,lowActionR)
-            environment.stepBack()
-            lhReward, _ = environment.step(lowActionL,highActionR)
-            environment.stepBack()
-            llReward, _ = environment.step(lowActionL,lowActionR)
-            environment.stepBack()
+        totalError += error/count
 
-            maxReward = max(max(hhReward,hlReward),max(lhReward,llReward))
+    t1 = time.time()
 
-            if hhReward == maxReward:
-                lowL = midL
-                midL = (highL + lowL)/2
-
-                lowR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = highActionL
-                bestActionR = highActionR
-
-            elif hlReward == maxReward:
-                lowL = midL
-                midL = (highL + lowL)/2
-
-                highR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = highActionL
-                bestActionR = lowActionR
-
-            elif lhReward == maxReward:
-                highL = midL
-                midL = (highL + lowL)/2
-
-                lowR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = lowActionL
-                bestActionR = highActionR
-            else:
-                highL = midL
-                midL = (highL + lowL)/2
-
-                highR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = lowActionL
-                bestActionR = lowActionR
-
-        pointsX.append(environment.x)
-        pointsY.append(environment.y)
-        thetas.append(environment.theta)
-        actionsL.append(bestActionL)
-        actionsR.append(bestActionR)
-        ex.append(environment.errorX)
-        ey.append(environment.errorY)
-        error.append(math.dist([pointsX[-1],pointsY[-1]],[environment.errorX,environment.errorY]))
-
-        _,done = environment.step(bestActionL,bestActionR)
-
-        sweepx.append(environment.sweepX)
-        sweepy.append(environment.sweepY)
+    totalTime = t1-t0
 
     import os    
     os.environ['KMP_DUPLICATE_LIB_OK']='True'
     
-    
+    c = [.5*i for i in range(len(pointsX))]
     fig, ax = plt.subplots()
     ax.add_patch(plt.Circle((0, 0), 9, color='r'))
     ax.plot(pointsX, pointsY)
-    ax.plot(ex, ey)
+    ax.plot(pointsXreal, pointsYreal)
     ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
 
     custom_lines = [Line2D([0], [0], color='blue', lw=4),
@@ -363,111 +234,53 @@ def solve2C(depth=1000,tname="t1"):
     fig.savefig(f"./Question2/Q2C/{tname}/Q2C_{tname}_Path.png")
     plt.close()
 
-    return pointsX, pointsY, thetas, actionsL, actionsR, error
+    return pointsX, pointsY, thetas, pointsXreal, pointsYreal, totalError, totalTime
 
-def solve2D(depth=1000,tname="t1"):
+def solve2D(tname="t1"):
     if tname == "t1":
         t = 1
+        angle = 0.764
     elif tname == "t_1":
         t = .1
+        angle = .976
     elif tname == "t_01":
         t = .01
+        angle = .998
 
-    environment = CircleGym2DSearch(3.048,t,28,9,4)
-    environment.reset()
+    environment = CircleGym2DSearch(3.048,t,9)
 
-    done = False
+    
 
-    pointsX = []
-    pointsY = []
-    thetas = []
-    actionsL = []
-    actionsR = []
-    ex = []
-    ey = []
-    error = []
-    sweepx = []
-    sweepy = []
+    totalError = 0
+    t0 = time.time()
 
-    while not done:
-        highL = 1
-        lowL = -1
-        midL = 0
-        highR = 1
-        lowR = -1
-        midR = 0
-        print(environment.T)
-        for i in range(depth):
+    for i in range(100):
+        done = False
+        environment.reset(angle)
 
-            highActionL = (highL+midL)/2
-            lowActionL = (lowL+midL)/2
+        pointsX = []
+        pointsY = []
+        pointsXreal = []
+        pointsYreal = []
+        thetas = []
 
-            highActionR = (highR+midR)/2
-            lowActionR = (lowR+midR)/2
+        count = 0
+        error = 0
+        while not done:
+            pointsX.append(environment.x)
+            pointsY.append(environment.y)
+            thetas.append(environment.theta)
+            e, done = environment.step()
+            pointsXreal.append(environment.sweepX)
+            pointsYreal.append(environment.sweepY)
+            error += e
+            count += 1
 
-            hhReward, _ = environment.step(highActionL,highActionR)
-            environment.stepBack()
-            hlReward, _ = environment.step(highActionL,lowActionR)
-            environment.stepBack()
-            lhReward, _ = environment.step(lowActionL,highActionR)
-            environment.stepBack()
-            llReward, _ = environment.step(lowActionL,lowActionR)
-            environment.stepBack()
+        totalError += error/count
 
-            maxReward = max(max(hhReward,hlReward),max(lhReward,llReward))
+    t1 = time.time()
 
-            if hhReward == maxReward:
-                lowL = midL
-                midL = (highL + lowL)/2
-
-                lowR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = highActionL
-                bestActionR = highActionR
-
-            elif hlReward == maxReward:
-                lowL = midL
-                midL = (highL + lowL)/2
-
-                highR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = highActionL
-                bestActionR = lowActionR
-
-            elif lhReward == maxReward:
-                highL = midL
-                midL = (highL + lowL)/2
-
-                lowR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = lowActionL
-                bestActionR = highActionR
-            else:
-                highL = midL
-                midL = (highL + lowL)/2
-
-                highR = midR
-                midR = (highR + lowR)/2
-
-                bestActionL = lowActionL
-                bestActionR = lowActionR
-
-        pointsX.append(environment.x)
-        pointsY.append(environment.y)
-        thetas.append(environment.theta)
-        actionsL.append(bestActionL)
-        actionsR.append(bestActionR)
-        ex.append(environment.errorX)
-        ey.append(environment.errorY)
-        error.append(math.dist([pointsX[-1],pointsY[-1]],[environment.errorX,environment.errorY]))
-
-        _,done = environment.step(bestActionL,bestActionR)
-
-        sweepx.append(environment.sweepX)
-        sweepy.append(environment.sweepY)
+    totalTime = t1-t0
 
     import os    
     os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -476,7 +289,7 @@ def solve2D(depth=1000,tname="t1"):
     fig, ax = plt.subplots()
     ax.add_patch(plt.Circle((0, 0), 9, color='r'))
     ax.plot(pointsX, pointsY)
-    ax.plot(ex, ey)
+    ax.plot(pointsXreal, pointsYreal)
     ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
 
     custom_lines = [Line2D([0], [0], color='blue', lw=4),
@@ -495,4 +308,4 @@ def solve2D(depth=1000,tname="t1"):
     fig.savefig(f"./Question2/Q2D/{tname}/Q2D_{tname}_Path.png")
     plt.close()
 
-    return pointsX, pointsY, thetas, actionsL, actionsR, error
+    return pointsX, pointsY, thetas, pointsXreal, pointsYreal, totalError, totalTime
