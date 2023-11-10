@@ -4,6 +4,7 @@ gym
 torch
 torchvision
 matplotlib
+Pillow
 scipy
 seaborn
 moviepy

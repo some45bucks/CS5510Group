@@ -1,10 +1,17 @@
 import torch
+import numpy as np
+from PIL import Image
 
 from torch.utils.data import DataLoader, RandomSampler
 from torchvision.datasets import ImageNet
 from torchvision.models import alexnet
 from torchvision.transforms import transforms
 
+class ImageNetWithIndices(ImageNet):
+    def __getitem__(self, index):
+        data, target = super().__getitem__(index)
+        return data, target, index
+    
 device_type = 'cuda' if torch.cuda.is_available() else 'cpu'
 device = torch.device(device_type)
 print(f'Using device: {device_type}\n')
@@ -20,9 +27,8 @@ data_transform = transforms.Compose([
 ])
 
 print('Loading ImageNet Dataset (this may take a while)...')
-validation_set = ImageNet(root='./dataset', split='val', transform=data_transform)
-with open('./dataset/imagenet_classes.txt', 'r') as f:
-    class_names = [line.strip() for line in f.readlines()]
+validation_set = ImageNetWithIndices(root='./dataset', split='val', transform=data_transform)
+classes = np.array([label[0] for label in validation_set.classes])
 print('Finished loading ImageNet Dataset\n')
 
 print('Loading AlexNet model with pre-trained weights...')
@@ -36,7 +42,7 @@ top_1_correct_count = 0
 top_5_correct_count = 0
 batch_num = 0
 with torch.no_grad():
-    for images, labels in val_loader:
+    for images, labels, indices in val_loader:
         batch_num += 1
         images, labels = images.to(device), labels.to(device)
 
