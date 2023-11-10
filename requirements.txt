@@ -8,3 +8,4 @@ scipy
 seaborn
 moviepy
 pygame
+ultralytics
