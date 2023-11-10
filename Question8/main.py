@@ -1,7 +1,9 @@
 import torch
 import numpy as np
-from PIL import Image
+import os
+import shutil
 
+from pathlib import Path
 from torch.utils.data import DataLoader, RandomSampler
 from torchvision.datasets import ImageNet
 from torchvision.models import alexnet
@@ -41,6 +43,7 @@ print('Performing classification on ImageNet validation set...')
 top_1_correct_count = 0
 top_5_correct_count = 0
 batch_num = 0
+classification_results = []
 with torch.no_grad():
     for images, labels, indices in val_loader:
         batch_num += 1
@@ -57,7 +60,32 @@ with torch.no_grad():
         top_5_batch_accuracy = torch.sum(torch.any(top_5_predictions == labels.unsqueeze(dim=1), dim=1)).item() / labels.size(0)
         print(f'Batch {batch_num}: Top 1 Accuracy: {top_1_batch_accuracy * 100:.2f}%, Top 5 Accuracy: {top_5_batch_accuracy * 100:.2f}%')
 
+        # Collect results for labeling
+        for i, dataset_idx in enumerate(indices):
+            classification_results.append({
+                'image_path': validation_set.imgs[dataset_idx][0],
+                'true_label': classes[labels[i]],
+                'top_1_prediction': classes[top_1_predictions[i].cpu().item()],
+                'top_5_predictions': classes[top_5_predictions[i].cpu().numpy()]
+            })
+
 print('Finished performing classification\n')
+
+print('Saving classification results...')
+# Clear old results
+if os.path.exists('./results/alexnet'):
+    shutil.rmtree('./results/alexnet')
+    
+for result in classification_results:
+    image_source = Path(result['image_path'])
+    class_dir = Path(f'./results/alexnet/{result["top_1_prediction"]}')
+    class_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Copy image to class directory
+    image_dest = class_dir / image_source.name
+    shutil.copyfile(image_source, image_dest)
+
+print('Results sucessfully saved to results directory\n')
 
 print('Results:')
 top_1_accuracy = top_1_correct_count / val_loader.sampler.num_samples
