@@ -21,6 +21,8 @@ data_transform = transforms.Compose([
 
 print('Loading ImageNet Dataset (this may take a while)...')
 validation_set = ImageNet(root='./dataset', split='val', transform=data_transform)
+with open('./dataset/imagenet_classes.txt', 'r') as f:
+    class_names = [line.strip() for line in f.readlines()]
 print('Finished loading ImageNet Dataset\n')
 
 print('Loading AlexNet model with pre-trained weights...')
