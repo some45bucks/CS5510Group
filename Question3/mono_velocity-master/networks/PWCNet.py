@@ -8,7 +8,7 @@ Jinwei Gu and Zhile Ren
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from .correlation.correlation import Correlation
+from .correlation_torch import CorrTorch as Correlation
 import numpy as np
 
 

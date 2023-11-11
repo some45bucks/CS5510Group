@@ -1,6 +1,6 @@
 import torch
 from setuptools import setup, find_packages
-from torch.utils.cpp_extension import BuildExtension, CUDAExtension, CppExtension
+from torch.utils.cpp_extension import BuildExtension, CppExtension
 
 modules = [
     CppExtension(
@@ -8,17 +8,6 @@ modules = [
         ['roi_align/src/crop_and_resize.cpp']
         )
 ]
-
-if torch.cuda.is_available():
-    modules.append(
-        CUDAExtension(
-            'roi_align.crop_and_resize_gpu',
-            ['roi_align/src/crop_and_resize_gpu.cpp',
-             'roi_align/src/cuda/crop_and_resize_kernel.cu'],
-            extra_compile_args={'cxx': ['-g', '-fopenmp'],
-                                'nvcc': ['-O2']}
-        )
-    )
 
 setup(
     name='roi_align',

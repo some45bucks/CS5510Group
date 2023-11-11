@@ -45,7 +45,7 @@ def solve2A(depth=1000):
         pointsX.append(environment.x)
         pointsY.append(environment.y)
         thetas.append(environment.theta)
-        actions.append(bestAction)
+        actions.append(bestAction * environment.Ma)
         
 
         _,done = environment.step(bestAction)
@@ -62,12 +62,6 @@ def solve2A(depth=1000):
     ax.add_patch(plt.Circle((0, 0), 18, color='r'))
     ax.plot(pointsX, pointsY)
     ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
-
-
-    custom_lines = [Line2D([0], [0], color='blue', lw=4),
-            Line2D([0], [0], color='orange', lw=4),]
-    
-    ax.legend(custom_lines, ['Predicted Path', 'True Path'])
 
     plt.axis([-1.5*18, 1.5*18, -1.5*18, 1.5*18])
     x0,x1 = ax.get_xlim()
@@ -128,8 +122,8 @@ def solve2B(depth=1000):
         pointsY.append(environment.y)
         
         thetas.append(environment.theta)
-        actionsL.append(1)
-        actionsR.append(bestAction)
+        actionsL.append(1 * environment.Mv)
+        actionsR.append(bestAction * environment.Mv)
 
         _,done = environment.step(1,bestAction)
 
@@ -143,11 +137,6 @@ def solve2B(depth=1000):
     ax.add_patch(plt.Circle((0, 0), 18, color='r'))
     ax.plot(pointsX, pointsY)
     ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
-
-    custom_lines = [Line2D([0], [0], color='blue', lw=4),
-            Line2D([0], [0], color='orange', lw=4),]
-    
-    ax.legend(custom_lines, ['Predicted Path', 'True Path'])
 
     plt.axis([-1.5*18, 1.5*18, -1.5*18, 1.5*18])
     x0,x1 = ax.get_xlim()
@@ -218,11 +207,6 @@ def solve2C(tname="t1"):
     ax.plot(pointsXreal, pointsYreal)
     ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
 
-    custom_lines = [Line2D([0], [0], color='blue', lw=4),
-            Line2D([0], [0], color='orange', lw=4),]
-    
-    ax.legend(custom_lines, ['Predicted Path', 'True Path'])
-
     plt.axis([-1.5*9, 1.5*9, -1.5*9, 1.5*9])
     x0,x1 = ax.get_xlim()
     y0,y1 = ax.get_ylim()
@@ -291,11 +275,6 @@ def solve2D(tname="t1"):
     ax.plot(pointsX, pointsY)
     ax.plot(pointsXreal, pointsYreal)
     ax.quiver(pointsX, pointsY,-np.sin(thetas),np.cos(thetas))
-
-    custom_lines = [Line2D([0], [0], color='blue', lw=4),
-            Line2D([0], [0], color='orange', lw=4),]
-    
-    ax.legend(custom_lines, ['Predicted Path', 'True Path'])
 
     plt.axis([-1.5*9, 1.5*9, -1.5*9, 1.5*9])
     x0,x1 = ax.get_xlim()

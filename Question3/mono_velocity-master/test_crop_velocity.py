@@ -1,6 +1,5 @@
 import argparse
 import time
-from PIL import ImageDraw
 
 import collections
 
@@ -29,12 +28,12 @@ def return_arguments():
     parser = argparse.ArgumentParser(description='PyTorch Mono Velocity')
 
     # dir info
-    parser.add_argument('--test_data', default='data/tusimple_test.txt')
+    parser.add_argument('--test_data', default='data/test.txt')
     parser.add_argument('--trained_model', default='results/cropflowandsupp/cropflowandsupp6_cpt.pth')
     parser.add_argument('--dataset', default='Tusimple')
     parser.add_argument('--output_directory', default='results')
     parser.add_argument('--res_file', default='crop_velocity.json')
-    parser.add_argument('--basedir', default='/home/song/Documents/data/benchmark_velocity_test')
+    parser.add_argument('--basedir', default='data')
     parser.add_argument('--md', default=4)
     parser.add_argument('--image_h', default=576)
     parser.add_argument('--image_w', default=1280)
@@ -44,6 +43,23 @@ def return_arguments():
     parser.add_argument('--cam_cy', default=304.2563)
     parser.add_argument('--pre_height', default=1.80)
     parser.add_argument('--time_inv', default=1.0)
+
+
+    # parser.add_argument('--test_data', default='data/tusimple_test.txt')
+    # parser.add_argument('--trained_model', default='results/cropflowandsupp/cropflowandsupp6_cpt.pth')
+    # parser.add_argument('--dataset', default='Tusimple')
+    # parser.add_argument('--output_directory', default='results')
+    # parser.add_argument('--res_file', default='crop_velocity.json')
+    # parser.add_argument('--basedir', default='./outputData/')
+    # parser.add_argument('--md', default=4)
+    # parser.add_argument('--image_h', default=576)
+    # parser.add_argument('--image_w', default=1280)
+    # parser.add_argument('--cam_fx', default=714.1526)
+    # parser.add_argument('--cam_fy', default=710.3725)
+    # parser.add_argument('--cam_cx', default=675.5754)
+    # parser.add_argument('--cam_cy', default=304.2563)
+    # parser.add_argument('--pre_height', default=1.80)
+    # parser.add_argument('--time_inv', default=1.0)
 
     # parser.add_argument('--test_data', default='data/original/kitti_motion_test.txt')
     # parser.add_argument('--basedir', default='/data/songzb')
