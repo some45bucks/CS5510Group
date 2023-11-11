@@ -11,3 +11,11 @@ seaborn
 moviepy
 pygame
 ultralytics
+pandas
+scipy
+fer
+neattext
+scikit-learn
+stable-baselines3[extra]
+opencv-python
+gymnasium
