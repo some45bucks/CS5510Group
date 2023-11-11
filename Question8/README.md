@@ -19,6 +19,9 @@ The yolo models can be run with the appropratie script:
 
 Note: If YOLO complains about not being able to find the dataset, try running the alexnet script first. This script also handles unpacking the tarballs for the imagenet dataset.
 
+Pi Run Results-
+- Unfortunately, for both yolov5 and yolov8, yolo just segfaults on our pi 3's. - RIP
+
 Laptop Specs:
 - CPU: Intel Core i7-8650U @ 2.11 GHz base clock
 - GPU: NVIDIA GeForce GTX 1050
@@ -40,8 +43,6 @@ Speed: 0.5ms preprocess, 10.3ms inference, 0.0ms loss, 0.0ms postprocess per ima
 Results saved to runs\classify\val6
  Learn more at https://docs.ultralytics.com/modes/val
 ```
-
-YOLOv8 Run Results for Pi
 
 YOLOv5 Run Results for Laptop
 
@@ -1057,4 +1058,42 @@ automated teller machine          50        0.76        0.94
                      ear          50        0.48        0.94
             toilet paper          50        0.34        0.68
 Speed: 0.5ms pre-process, 17.3ms inference, 0.4ms post-process per image at shape (1, 3, 224, 224)
+```
+
+### Part d
+
+Detectron v1 was being difficult to install, so I tried v2. Got fairly far with v2, but I can't figure out how to get around this compiler error:
+
+```
+Building wheels for collected packages: detectron2
+  Building wheel for detectron2 (setup.py) ... error
+  error: subprocess-exited-with-error
+
+  × python setup.py bdist_wheel did not run successfully.
+  │ exit code: 1
+  ╰─> [389 lines of output]
+      running bdist_wheel
+      C:\Users\kytec\miniconda3\envs\detectron\Lib\site-packages\torch\utils\cpp_extension.py:502: UserWarning: Attempted to use ninja as the BuildExtension backend but we could not find ninja.. Falling back to using the slow distutils backend.
+        warnings.warn(msg.format('we could not find ninja.'))
+      running build
+      running build_py
+      creating build
+      creating build\lib.win-amd64-cpython-311
+      creating build\lib.win-amd64-cpython-311\detectron2
+      copying detectron2\__init__.py -> build\lib.win-amd64-cpython-311\detectron2
+      creating build\lib.win-amd64-cpython-311\tools
+      ...
+      creating build\temp.win-amd64-cpython-311\Release\Users\kytec\AppData\Local\Temp\pip-install-sl77cc3w\detectron2_d35dff079b0a4a17bed753dc1b87bcab\detectron2\layers\csrc\cocoeval
+      creating build\temp.win-amd64-cpython-311\Release\Users\kytec\AppData\Local\Temp\pip-install-sl77cc3w\detectron2_d35dff079b0a4a17bed753dc1b87bcab\detectron2\layers\csrc\nms_rotated
+      "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.34.31933\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -IC:\Users\kytec\AppData\Local\Temp\pip-install-sl77cc3w\detectron2_d35dff079b0a4a17bed753dc1b87bcab\detectron2\layers\csrc -IC:\Users\kytec\miniconda3\envs\detectron\Lib\site-packages\torch\include -IC:\Users\kytec\miniconda3\envs\detectron\Lib\site-packages\torch\include\torch\csrc\api\include -IC:\Users\kytec\miniconda3\envs\detectron\Lib\site-packages\torch\include\TH -IC:\Users\kytec\miniconda3\envs\detectron\Lib\site-packages\torch\include\THC -IC:\Users\kytec\miniconda3\envs\detectron\include -IC:\Users\kytec\miniconda3\envs\detectron\Include "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.34.31933\include" "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.34.31933\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.22000.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.22000.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.22000.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.22000.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.22000.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8\include\um" /EHsc /TpC:\Users\kytec\AppData\Local\Temp\pip-install-sl77cc3w\detectron2_d35dff079b0a4a17bed753dc1b87bcab\detectron2\layers\csrc\ROIAlignRotated\ROIAlignRotated_cpu.cpp /Fobuild\temp.win-amd64-cpython-311\Release\Users\kytec\AppData\Local\Temp\pip-install-sl77cc3w\detectron2_d35dff079b0a4a17bed753dc1b87bcab\detectron2\layers\csrc\ROIAlignRotated\ROIAlignRotated_cpu.obj /MD /wd4819 /wd4251 /wd4244 /wd4267 /wd4275 /wd4018 /wd4190 /wd4624 /wd4067 /wd4068 /EHsc -DTORCH_API_INCLUDE_EXTENSION_H -DTORCH_EXTENSION_NAME=_C -D_GLIBCXX_USE_CXX11_ABI=0 /std:c++17
+      ROIAlignRotated_cpu.cpp
+      C:\Users\kytec\AppData\Local\Temp\pip-install-sl77cc3w\detectron2_d35dff079b0a4a17bed753dc1b87bcab\detectron2\layers\csrc\ROIAlignRotated\ROIAlignRotated_cpu.cpp : fatal error C1083: Cannot open compiler generated file: '': Invalid argument        
+      error: command 'C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.34.31933\\bin\\HostX86\\x64\\cl.exe' failed with exit code 1
+      [end of output]
+
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+  ERROR: Failed building wheel for detectron2
+  Running setup.py clean for detectron2
+Failed to build detectron2
+ERROR: Could not build wheels for detectron2, which is required to install pyproject.toml-based projects
 ```
