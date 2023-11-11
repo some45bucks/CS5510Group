@@ -1,2 +1,4 @@
 results
-yolov8n-cls.*
+runs
+yolov??-cls.*
+yolov??.*
