@@ -47,7 +47,7 @@ The yolo models can be run with the appropratie script:
 Note: If YOLO complains about not being able to find the dataset, try running the alexnet script first. This script also handles unpacking the tarballs for the imagenet dataset.
 
 Pi Run Results-
-- Unfortunately, for both yolov5 and yolov8, yolo just segfaults on our pi 3's. - RIP
+- Unfortunately, for both yolov5 and yolov8 on imagenet, yolo just segfaults on our pi 3's. - RIP
 
 Laptop Specs:
 - CPU: Intel Core i7-8650U @ 2.11 GHz base clock
