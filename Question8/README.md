@@ -10,6 +10,33 @@ If you don't want to worry about extracting the imagenet archive files, the alex
 
 Run `python alexnet.py` from the `Question8` directory after downloading the needed imagenet files and after installing the dependencies listed in the repository's `requirements.txt`.
 
+Results:
+
+```
+Using device: cuda
+
+Loading ImageNet Dataset (this may take a while)...
+Finished loading ImageNet Dataset
+
+Loading AlexNet model with pre-trained weights...
+Finished loading AlexNet model
+
+Performing classification on ImageNet validation set...
+Batch 1: Top 1 Accuracy: 64.06%, Top 5 Accuracy: 81.25%
+Batch 2: Top 1 Accuracy: 55.56%, Top 5 Accuracy: 83.33%
+Finished performing classification
+
+Saving classification results...
+Results sucessfully saved to results directory
+
+Results:
+Top-1 Accuracy: 61.00%
+Top-5 Accuracy: 82.00%
+```
+
+Classified images are provided in the results directory
+
+
 ### Part b and c
 
 The yolo models can be run with the appropratie script:
