@@ -29,7 +29,7 @@ data_transform = transforms.Compose([
 ])
 
 print('Loading ImageNet Dataset (this may take a while)...')
-validation_set = ImageNetWithIndices(root='./dataset', split='val', transform=data_transform)
+validation_set = ImageNetWithIndices(root='./datasets/imagenet', split='val', transform=data_transform)
 classes = np.array([label[0] for label in validation_set.classes])
 print('Finished loading ImageNet Dataset\n')
 
