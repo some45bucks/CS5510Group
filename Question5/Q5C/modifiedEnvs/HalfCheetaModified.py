@@ -205,7 +205,7 @@ class HalfCheetahEnvCustom(MujocoEnv, utils.EzPickle):
         forward_reward = self._forward_reward_weight * x_velocity
 
         observation = self._get_obs()
-        if observation[11] > math.pi:
+        if observation[11] > math.pi: #<----- This is where the change is
             also = 1
         else:
             also = 0

@@ -1,1 +1,1 @@
-testimage1.png testimage2.png 
+testimage1.png testimage2.png test.json

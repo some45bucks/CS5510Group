@@ -307,7 +307,7 @@ class FrozenLakeEnvCustom(Env):
         if self.render_mode == "human":
             self.render()
         
-        if self.np_random.random() <= .02:
+        if self.np_random.random() <= .02: #<----- This is where the change is
             return (int(s), 0, True, False, {"prob": p})
         
         return (int(s), r, t, False, {"prob": p})
