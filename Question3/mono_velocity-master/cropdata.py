@@ -199,8 +199,9 @@ class CropLoader(Dataset):
             sample = self.augment(sample)
         else:
             for i in range(data_num):
+                print(json_dict)
                 t_bbox = json_dict[i]['bbox']
-                t_bbox = [t_bbox['left'], t_bbox['top'], t_bbox['right'], t_bbox['bottom']]
+                t_bbox = [int(t_bbox['left']), int(t_bbox['top']), int(t_bbox['right']), int(t_bbox['bottom'])]
                 if self.args.dataset == 'Kitti':
                     velocity.append(json_dict[i]['velocity'])
                     location.append(json_dict[i]['position'])

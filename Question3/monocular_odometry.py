@@ -166,8 +166,8 @@ class MonoVideoOdometery(object):
 if __name__ == '__main__':
 
     
-    img_path = f'./Question3/mono_vel_data'
-    max = 14236
+    img_path = f'./Question3/mono_vel_data_sup'
+    max = 981
     focal = 1 #default
     pp = (0, 0) #default
     
@@ -210,7 +210,7 @@ if __name__ == '__main__':
 
         # traj = cv2.circle(traj, (true_x+300, true_y+200), 1, list((0, 0, 255)), 4)
         
-        traj = cv2.circle(traj, (draw_x+400, draw_y+300), 1, list((0, 255, 0)), 4)
+        traj = cv2.circle(traj, (draw_x+300, draw_y+200), 1, list((0, 255, 0)), 4)
 
         cv2.putText(traj, 'Actual Position:', (140, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(255,255,255), 1)
         cv2.putText(traj, 'Red', (270, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0, 0, 255), 1)
@@ -218,6 +218,6 @@ if __name__ == '__main__':
         cv2.putText(traj, 'Green', (270, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0, 255, 0), 1)
 
         cv2.imshow('trajectory', traj)
-    cv2.imwrite(".Question3/new_trajectory.png", traj)
+    cv2.imwrite("./Question3/new_trajectory.png", traj)
 
     cv2.destroyAllWindows()

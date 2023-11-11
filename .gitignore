@@ -5,6 +5,7 @@ videos/
 data/best/
 data/logs/
 mono_vel_data/
+mono_vel_data_sup/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
