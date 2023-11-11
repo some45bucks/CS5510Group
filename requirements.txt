@@ -1,6 +1,7 @@
 # needs to be installed before running Question5/main.py and Question2/main.py
 numpy
 gym
+gitpython
 torch
 torchvision
 matplotlib
